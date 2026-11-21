@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crux Drills</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Crux Drills">
+<style>
+/* Plan: a night-study table. Pure black room, the wooden board as the one warm object,
+   cool blue for what you can press, green/red only for the verdict. Board left, coach right. */
+:root {
+  color-scheme: dark;
+  --bg: #000;
+  --panel: #0b0c0f;
+  --line: #23262d;
+  --ink: #e9eaee;
+  --muted: #8b909b;
+  --accent: #4d9fff;
+  --good: #3ddc84;
+  --bad: #ff5f57;
+  --warn: #ffb020;
+  --light-sq: #f0d9b5;
+  --dark-sq: #b58863;
+  --font-display: "Bahnschrift", "DIN Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", "SF Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--font-body); }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 14px 20px;
+       border-bottom: 1px solid var(--line); }
+.brand { font: 700 26px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
+.brand span { color: var(--accent); }
+.counts { display: flex; gap: 18px; font-variant-numeric: tabular-nums; }
+.count { display: flex; flex-direction: column; line-height: 1.1; }
+.count b { font: 600 22px/1 var(--font-display); }
+.count small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.count.due b { color: var(--accent); }
+.count.new b { color: var(--warn); }
+.count.learned b { color: var(--good); }
+.top .spacer { flex: 1; }
+.savestate { font-size: 13px; color: var(--muted); }
+.savestate.ok { color: var(--good); }
+.savestate.warn { color: var(--warn); }
+.btn[hidden] { display: none; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #00142b; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.1); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+.notice { margin: 12px 20px 0; padding: 8px 12px; border: 1px solid var(--line); border-left: 3px solid var(--warn);
+          background: var(--panel); border-radius: 6px; font-size: 14px; color: var(--muted); }
+.notice b { color: var(--ink); }
+.notice[hidden] { display: none; }
+
+.main { display: flex; flex-wrap: wrap; gap: 28px; padding: 22px 20px 40px; align-items: flex-start; }
+.boardwrap { position: relative; width: min(560px, calc(100vw - 40px)); flex: none; }
+.board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); aspect-ratio: 1; width: 100%;
+         border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px #3a2a1a, 0 18px 50px rgba(0,0,0,.6);
+         user-select: none; touch-action: none; }
+.sq { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; }
+.sq.l { background: var(--light-sq); } .sq.d { background: var(--dark-sq); }
+.sq.last.l { background: #cdd26a; } .sq.last.d { background: #aaa23a; }
+.sq.sel { box-shadow: inset 0 0 0 4px rgba(77,159,255,.9); }
+.sq.ok.l { background: #9fe0b0; } .sq.ok.d { background: #5bb478; }
+.sq.no.l { background: #f3a29c; } .sq.no.d { background: #d06a62; }
+.sq .dot { position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(0,0,0,.22); pointer-events: none; }
+.sq .ring { position: absolute; inset: 4%; border-radius: 50%; border: 5px solid rgba(0,0,0,.22); pointer-events: none; }
+.coord { position: absolute; font: 600 11px/1 var(--font-body); pointer-events: none; }
+.coord.f { right: 4px; bottom: 3px; } .coord.r { left: 4px; top: 3px; }
+.sq.l .coord { color: var(--dark-sq); } .sq.d .coord { color: var(--light-sq); }
+.pc { font-size: calc(min(560px, 100vw - 40px) / 8 * .78); line-height: 1; cursor: default;
+      font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols2", serif; position: relative; z-index: 1; }
+.pc.w { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000, 0 0 1px #000, 0 1px 2px rgba(0,0,0,.6); }
+.pc.b { color: #111; text-shadow: 0 1px 1px rgba(255,255,255,.25); }
+.board.live .pc.mine { cursor: pointer; }
+.board.live.drag .pc.mine { cursor: grab; }
+.ghost { position: fixed; pointer-events: none; z-index: 50; transform: translate(-50%, -55%); }
+.pc.lifted { opacity: .25; }
+.promo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+         background: rgba(0,0,0,.55); z-index: 20; }
+.promo[hidden] { display: none; }
+.promo div { display: flex; gap: 6px; background: var(--panel); padding: 10px; border-radius: 8px; border: 1px solid var(--line); }
+.promo button { width: 64px; height: 64px; border-radius: 6px; border: 1px solid var(--line); background: var(--light-sq); cursor: pointer; }
+
+.coach { flex: 1 1 320px; min-width: 280px; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+.prompt { font: 700 40px/1 var(--font-display); text-transform: uppercase; letter-spacing: .01em; }
+.prompt.w::before { content: ""; display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+                    margin-right: 12px; vertical-align: 4px; box-shadow: 0 0 0 1px #555; }
+.prompt.b::before { content: ""; display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: #111;
+                    margin-right: 12px; vertical-align: 4px; box-shadow: 0 0 0 1px #777; }
+.meta { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.meta .chip { border: 1px solid var(--line); border-radius: 99px; padding: 1px 10px; }
+.meta .chip.state-new { border-color: var(--warn); color: var(--warn); }
+.meta .chip.state-review { border-color: var(--accent); color: var(--accent); }
+.meta .chip.state-relearn { border-color: var(--bad); color: var(--bad); }
+.meta a { color: var(--accent); text-decoration: none; }
+.verdict { min-height: 54px; border-radius: 8px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line);
+           border-left: 4px solid var(--line); }
+.verdict.good { border-left-color: var(--good); }
+.verdict.bad { border-left-color: var(--bad); }
+.verdict h3 { margin: 0 0 2px; font: 700 22px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
+.verdict.good h3 { color: var(--good); } .verdict.bad h3 { color: var(--bad); }
+.verdict p { margin: 0; color: var(--muted); }
+.lines { display: flex; flex-direction: column; gap: 8px; }
+.lines[hidden] { display: none; }
+.lineblock { font-family: var(--font-mono); font-size: 14px; line-height: 1.9; }
+.lineblock .tag { font: 600 12px/1 var(--font-body); text-transform: uppercase; letter-spacing: .06em; margin-right: 6px; }
+.lineblock .tag.sol { color: var(--good); } .lineblock .tag.tempt { color: var(--bad); }
+.lineblock .endmark { font: 600 11px/1 var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border: 1px solid currentColor; border-radius: 4px; padding: 2px 4px; margin-right: 4px; }
+.mv { cursor: pointer; padding: 1px 4px; border-radius: 3px; white-space: nowrap; }
+.mv:hover { background: #1a2a3d; }
+.mv.cur { background: var(--accent); color: #00142b; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.session { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.done { padding: 22px; border: 1px dashed var(--line); border-radius: 10px; text-align: left; }
+.done[hidden] { display: none; }
+.done h2 { margin: 0 0 6px; font: 700 30px/1 var(--font-display); text-transform: uppercase; }
+
+dialog { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 0;
+         width: min(520px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.7); }
+.dlg { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.dlg h2 { margin: 0; font: 700 26px/1 var(--font-display); text-transform: uppercase; }
+.dlg p { margin: 0; color: var(--muted); font-size: 14px; }
+.opt { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+.opt label { font-weight: 600; }
+.opt small { display: block; color: var(--muted); font-weight: 400; font-size: 13px; }
+.opt input[type=number] { width: 72px; background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.opt select { background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.switch { appearance: none; width: 44px; height: 24px; border-radius: 99px; background: #2a2d34; position: relative; cursor: pointer; flex: none; margin-top: 2px; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #c9ccd3; transition: left .15s; }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { left: 23px; background: #fff; }
+.dlg .row { display: flex; gap: 10px; justify-content: flex-end; }
+.drop { border: 1px dashed var(--line); border-radius: 8px; padding: 16px; text-align: center; color: var(--muted); }
+.drop.over { border-color: var(--accent); color: var(--ink); }
+.drop code { font-family: var(--font-mono); color: var(--ink); font-size: 13px; }
+.status { font-size: 14px; }
+.status.err { color: var(--bad); } .status.ok { color: var(--good); }
+@media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
+@media (max-width: 640px) { .prompt { font-size: 32px; } .counts { gap: 12px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Crux <span>Drills</span></div>
+  <div class="counts" aria-label="Today">
+    <div class="count due"><b id="nDue">0</b><small>Due</small></div>
+    <div class="count new"><b id="nNew">0</b><small>New today</small></div>
+    <div class="count learned"><b id="nLearned">0</b><small>Groups learned</small></div>
+  </div>
+  <div class="spacer"></div>
+  <span class="savestate" id="saveState"></span>
+  <button class="btn" id="btnSave" type="button" hidden>Save progress</button>
+  <button class="btn" id="btnInstall" type="button" hidden>Install app</button>
+  <button class="btn" id="btnSettings" type="button">Settings</button>
+</header>
+<div class="notice" id="notice" hidden></div>
+
+<main class="main">
+  <div class="boardwrap">
+    <div class="board" id="board" aria-label="Chess board"></div>
+    <div class="promo" id="promo" hidden><div id="promoChoices"></div></div>
+  </div>
+  <section class="coach" aria-live="polite">
+    <div class="prompt" id="prompt">Loading…</div>
+    <div class="meta" id="meta"></div>
+    <div class="verdict" id="verdict"><p id="hint">Find the move. Practising a few puzzles of a group makes the rest of that group easier.</p></div>
+    <div class="lines" id="lines" hidden></div>
+    <div class="actions">
+      <button class="btn" id="btnShow" type="button">Show answer</button>
+      <button class="btn primary" id="btnNext" type="button" disabled>Next puzzle</button>
+    </div>
+    <div class="session" id="session"></div>
+    <div class="done" id="done" hidden>
+      <h2>All caught up</h2>
+      <p id="doneText"></p>
+      <div class="actions" style="margin-top:12px"><button class="btn" id="btnExtra" type="button">Practise ahead</button></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlgSettings">
+  <form class="dlg" method="dialog" id="formSettings">
+    <h2>Settings</h2>
+    <div class="opt"><label for="optAuto">Move to the next puzzle automatically<small>After you solve a puzzle, the next one starts on its own.</small></label>
+      <input class="switch" type="checkbox" id="optAuto"></div>
+    <div class="opt"><label for="optAutoMiss">…also after a miss<small>Waits a few seconds so you can see the answer first.</small></label>
+      <input class="switch" type="checkbox" id="optAutoMiss"></div>
+    <div class="opt"><label for="optDrag">Drag pieces with the mouse<small>Off: click a piece, then click its square.</small></label>
+      <input class="switch" type="checkbox" id="optDrag"></div>
+    <div class="opt"><label for="optUntil">Play until<small>How much of the winning line you play yourself. A puzzle ends where you have a choice again: a second move would win too.</small></label>
+      <select id="optUntil"><option value="end">The end of the puzzle</option><option value="key">The key move only</option><option value="payoff">The payoff</option></select></div>
+    <div class="opt"><label for="optNew">New groups per day<small>Each new group starts with its primers.</small></label>
+      <input type="number" id="optNew" min="0" max="50" step="1"></div>
+    <div class="opt"><label for="optThemes">Show lichess themes while solving<small>They can give the idea away.</small></label>
+      <input class="switch" type="checkbox" id="optThemes"></div>
+    <div class="opt"><label>Your progress<small>Back it up, or move it to another browser or device.</small></label>
+      <span class="row" style="margin:0"><button class="btn" type="button" id="btnExport">Export</button><button class="btn" type="button" id="btnImport">Import</button></span></div>
+    <input type="file" id="fileImport" accept=".js,.json,text/javascript,application/json" hidden>
+    <div class="row"><button class="btn primary" value="ok" type="submit">Done</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgSave">
+  <div class="dlg">
+    <h2>Save your progress</h2>
+    <p id="saveText"></p>
+    <div class="row" id="saveButtons"></div>
+    <div class="status" id="saveStatus"></div>
+  </div>
+</dialog>
+
+<script src="deck.js"></script>
+<script>
+"use strict";
+const SAMPLE_DECK = {"name":"Example deck","example":true,"groups":[{"sig":"kM7tG#0","members":["kM7tG#0","6yrR3#0","u9xvm#0","NUtU9#0"],"primers":["kM7tG#0","6yrR3#0"]},{"sig":"990jb#0","members":["990jb#0","heKt4#0","qg8ZK#0","26c9k#0"],"primers":["990jb#0","heKt4#0"]}],"cruxes":[{"id":"kM7tG#0","pz":"kM7tG","r":1371,"th":["clearance","long","mate","mateIn3","middlegame","sacrifice"],"s":"b","fen":"4r2k/2p2R1p/3b2p1/8/Q7/1pPBq3/1P5P/1K1R4 b - - 0 30","lm":"","ctx":"","t":{"u":["e3d3","d1d3","e8e1","d3d1","e1d1"],"l":["30...Qxd3+","31. Rxd3","31...Re1+","32. Rd1","32...Rxd1#"],"p":4},"m":[{"u":["d6h2"],"l":["30...Bxh2"]}]},{"id":"6yrR3#0","pz":"6yrR3","r":1091,"th":["clearance","endgame","fork","long","mate","mateIn3","sacrifice"],"s":"b","fen":"6k1/1p1q3p/p5pQ/2p5/2PnR3/1P6/P4PPP/6K1 b - - 0 35","lm":"","ctx":"","t":{"u":["d4e2","e4e2","d7d1","e2e1","d1e1"],"l":["35...Ne2+","36. Rxe2","36...Qd1+","37. Re1","37...Qxe1#"],"p":4},"m":[{"u":["d4f5"],"l":["35...Nf5"]}]},{"id":"u9xvm#0","pz":"u9xvm","r":1211,"th":["attraction","exposedKing","long","mate","mateIn3","middlegame","pillsburysMate","sacrifice"],"s":"b","fen":"r6r/p1n1k3/2p5/1p6/4NnP1/4bB2/PP5B/R4R1K b - - 1 31","lm":"","ctx":"","t":{"u":["h8h2","h1h2","a8h8","h2g3","h8h3"],"l":["31...Rxh2+","32. Kxh2","32...Rh8+","33. Kg3","33...Rh3#"],"p":4},"m":[{"u":["c7d5"],"l":["31...Ncd5"]}]},{"id":"NUtU9#0","pz":"NUtU9","r":1413,"th":["discoveredAttack","kingsideAttack","mate","mateIn2","middlegame","short"],"s":"w","fen":"4brk1/1p3p1p/4pp2/1Pp5/2q1P3/r3PR2/5QPP/5R1K w - - 0 31","lm":"","ctx":"","t":{"u":["f3g3","g8h8","f2f6"],"l":["31. Rg3+","31...Kh8","32. Qxf6#"],"p":2},"m":[{"u":["f2g3"],"l":["31. Qg3+"]}]},{"id":"990jb#0","pz":"990jb","r":2259,"th":["crushing","endgame","master","queenEndgame","skewer","veryLong"],"s":"w","fen":"5Q2/8/5pq1/6kp/6p1/5PPP/6K1/8 w - - 2 55","lm":"","ctx":"","t":{"u":["f3f4","g5f5","f8c8","f5e4","c8c2","e4d5","c2g6"],"l":["55. f4+","55...Kf5","56. Qc8+","56...Ke4","57. Qc2+","57...Kd5","58. Qxg6"],"p":6},"m":[{"u":["h3h4"],"l":["55. h4+"]}]},{"id":"heKt4#0","pz":"heKt4","r":892,"th":["crushing","discoveredAttack","kingsideAttack","master","middlegame","short"],"s":"b","fen":"r4rk1/p4ppp/4b3/3qp3/1P1b4/P2Q1B2/3B1PPP/2R2RK1 b - - 1 18","lm":"","ctx":"","t":{"u":["d4f2","f1f2","d5d3","f3a8","f8a8","c1e1","d3a3","e1e5","a3a1"],"l":["18...Bxf2+","19. Rxf2","19...Qxd3","20. Bxa8","20...Rxa8","21. Re1","21...Qxa3","22. Rxe5","22...Qa1+"],"p":2},"m":[{"u":["e5e4","f3e4","d5e5","e4a8","f8a8","d2c3","d4c3"],"l":["18...e4","19. Bxe4","19...Qe5","20. Bxa8","20...Rxa8","21. Bc3","21...Bxc3"]}]},{"id":"qg8ZK#0","pz":"qg8ZK","r":947,"th":["crushing","deflection","opening","short"],"s":"w","fen":"r2qkb1r/4pppp/p1pp4/3nP3/Q2P4/4Bb2/PP3PPP/RN3RK1 w kq - 0 13","lm":"","ctx":"","t":{"u":["a4c6","d8d7","c6a8","d7d8","a8a6"],"l":["13. Qxc6+","13...Qd7","14. Qxa8+","14...Qd8","15. Qxa6"],"p":4},"m":[{"u":["g2f3","d8d7"],"l":["13. gxf3","13...Qd7"]}]},{"id":"26c9k#0","pz":"26c9k","r":1830,"th":["advantage","attraction","kingsideAttack","middlegame","sacrifice","veryLong"],"s":"b","fen":"r3r1k1/p5p1/1p1bNnp1/8/2Pq4/P7/4QPPP/R3RBK1 b - - 0 23","lm":"","ctx":"","t":{"u":["d6h2","g1h2","d4h4","h2g1","f6g4","e2g4","h4g4","e6c7","e8e1"],"l":["23...Bxh2+","24. Kxh2","24...Qh4+","25. Kg1","25...Ng4","26. Qxg4","26...Qxg4","27. Nc7","27...Rxe1"],"p":6},"m":[{"u":["d4h4","g2g3","h4h5","e2b2","d6c5","f1g2","a8c8","g2d5"],"l":["23...Qh4","24. g3","24...Qh5","25. Qb2","25...Bc5","26. Bg2","26...Rac8","27. Bd5"]}]}]};
+
+/* ------------------------------------------------------------------ chess rules */
+const FILES = "abcdefgh";
+const sqName = i => FILES[i & 7] + ((i >> 3) + 1);
+const sqIdx = n => (n.charCodeAt(1) - 49) * 8 + (n.charCodeAt(0) - 97);
+const isWhite = p => p === p.toUpperCase();
+const KNIGHT = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const KING = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+const DIAG = [[1,1],[1,-1],[-1,1],[-1,-1]], ORTH = [[1,0],[-1,0],[0,1],[0,-1]];
+
+function parseFen(fen) {
+  const [pl, turn, cas, ep, hm, fm] = fen.split(" ");
+  const b = new Array(64).fill(null);
+  let r = 7, f = 0;
+  for (const ch of pl) {
+    if (ch === "/") { r--; f = 0; }
+    else if (ch >= "1" && ch <= "8") f += +ch;
+    else { b[r * 8 + f] = ch; f++; }
+  }
+  return { b, w: turn === "w", cas: cas === "-" ? "" : cas, ep: ep === "-" ? -1 : sqIdx(ep), hm: +hm || 0, fm: +fm || 1 };
+}
+function onBoard(f, r) { return f >= 0 && f < 8 && r >= 0 && r < 8; }
+function attacked(pos, sq, byWhite) {
+  const b = pos.b, f = sq & 7, r = sq >> 3;
+  const P = byWhite ? "P" : "p", N = byWhite ? "N" : "n", K = byWhite ? "K" : "k";
+  const BQ = byWhite ? "BQ" : "bq", RQ = byWhite ? "RQ" : "rq";
+  const pr = byWhite ? r - 1 : r + 1;
+  for (const df of [-1, 1]) if (onBoard(f + df, pr) && b[pr * 8 + f + df] === P) return true;
+  for (const [df, dr] of KNIGHT) if (onBoard(f + df, r + dr) && b[(r + dr) * 8 + f + df] === N) return true;
+  for (const [df, dr] of KING) if (onBoard(f + df, r + dr) && b[(r + dr) * 8 + f + df] === K) return true;
+  for (const [dirs, set] of [[DIAG, BQ], [ORTH, RQ]]) {
+    for (const [df, dr] of dirs) {
+      let ff = f + df, rr = r + dr;
+      while (onBoard(ff, rr)) {
+        const p = b[rr * 8 + ff];
+        if (p) { if (set.includes(p)) return true; break; }
+        ff += df; rr += dr;
+      }
+    }
+  }
+  return false;
+}
+function kingSq(pos, white) { return pos.b.indexOf(white ? "K" : "k"); }
+function inCheck(pos) { const k = kingSq(pos, pos.w); return k >= 0 && attacked(pos, k, !pos.w); }
+function pseudoMoves(pos) {
+  const out = [], b = pos.b, w = pos.w;
+  for (let s = 0; s < 64; s++) {
+    const p = b[s];
+    if (!p || isWhite(p) !== w) continue;
+    const f = s & 7, r = s >> 3, t = p.toLowerCase();
+    const add = (to, promo) => out.push({ from: s, to, promo });
+    const addP = to => { const rr = to >> 3; if (rr === 7 || rr === 0) for (const q of "qrbn") add(to, q); else add(to); };
+    if (t === "p") {
+      const dr = w ? 1 : -1, start = w ? 1 : 6;
+      if (onBoard(f, r + dr) && !b[(r + dr) * 8 + f]) {
+        addP((r + dr) * 8 + f);
+        if (r === start && !b[(r + 2 * dr) * 8 + f]) add((r + 2 * dr) * 8 + f);
+      }
+      for (const df of [-1, 1]) {
+        if (!onBoard(f + df, r + dr)) continue;
+        const to = (r + dr) * 8 + f + df, q = b[to];
+        if ((q && isWhite(q) !== w) || to === pos.ep) addP(to);
+      }
+    } else if (t === "n" || t === "k") {
+      for (const [df, dr] of (t === "n" ? KNIGHT : KING)) {
+        if (!onBoard(f + df, r + dr)) continue;
+        const to = (r + dr) * 8 + f + df, q = b[to];
+        if (!q || isWhite(q) !== w) add(to);
+      }
+      if (t === "k") {
+        const rank = w ? 0 : 7;
+        if (s === rank * 8 + 4 && !attacked(pos, s, !w)) {
+          const R = w ? "R" : "r";
+          if (pos.cas.includes(w ? "K" : "k") && b[rank * 8 + 7] === R && !b[rank * 8 + 5] && !b[rank * 8 + 6]
+              && !attacked(pos, rank * 8 + 5, !w) && !attacked(pos, rank * 8 + 6, !w)) add(rank * 8 + 6);
+          if (pos.cas.includes(w ? "Q" : "q") && b[rank * 8] === R && !b[rank * 8 + 1] && !b[rank * 8 + 2] && !b[rank * 8 + 3]
+              && !attacked(pos, rank * 8 + 3, !w) && !attacked(pos, rank * 8 + 2, !w)) add(rank * 8 + 2);
+        }
+      }
+    } else {
+      const dirs = t === "b" ? DIAG : t === "r" ? ORTH : DIAG.concat(ORTH);
+      for (const [df, dr] of dirs) {
+        let ff = f + df, rr = r + dr;
+        while (onBoard(ff, rr)) {
+          const to = rr * 8 + ff, q = b[to];
+          if (q) { if (isWhite(q) !== w) add(to); break; }
+          add(to); ff += df; rr += dr;
+        }
+      }
+    }
+  }
+  return out;
+}
+function makeMove(pos, m) {
+  const b = pos.b.slice(), p = b[m.from], w = pos.w, t = p.toLowerCase();
+  let cas = pos.cas, ep = -1;
+  const capture = !!b[m.to] || (t === "p" && m.to === pos.ep);
+  if (t === "p" && m.to === pos.ep) b[m.to + (w ? -8 : 8)] = null;
+  if (t === "k" && Math.abs((m.to & 7) - (m.from & 7)) === 2) {
+    const rank = m.from >> 3;
+    if ((m.to & 7) === 6) { b[rank * 8 + 5] = b[rank * 8 + 7]; b[rank * 8 + 7] = null; }
+    else { b[rank * 8 + 3] = b[rank * 8]; b[rank * 8] = null; }
+  }
+  b[m.to] = m.promo ? (w ? m.promo.toUpperCase() : m.promo) : p;
+  b[m.from] = null;
+  if (t === "p" && Math.abs(m.to - m.from) === 16) ep = (m.to + m.from) / 2;
+  if (t === "k") cas = cas.replace(w ? /[KQ]/g : /[kq]/g, "");
+  for (const [sq, c] of [[0, "Q"], [7, "K"], [56, "q"], [63, "k"]]) if (m.from === sq || m.to === sq) cas = cas.replace(c, "");
+  return { b, w: !w, cas, ep, hm: (t === "p" || capture) ? 0 : pos.hm + 1, fm: pos.fm + (w ? 0 : 1) };
+}
+function legalMoves(pos) {
+  return pseudoMoves(pos).filter(m => { const n = makeMove(pos, m); const k = kingSq(n, pos.w); return !attacked(n, k, n.w); });
+}
+const uciOf = m => sqName(m.from) + sqName(m.to) + (m.promo || "");
+function moveFromUci(pos, u) {
+  const from = sqIdx(u.slice(0, 2)), to = sqIdx(u.slice(2, 4)), promo = u[4] || undefined;
+  return legalMoves(pos).find(m => m.from === from && m.to === to && (m.promo || undefined) === promo) || null;
+}
+function san(pos, m) {
+  const p = pos.b[m.from], t = p.toLowerCase();
+  let s;
+  if (t === "k" && Math.abs((m.to & 7) - (m.from & 7)) === 2) s = (m.to & 7) === 6 ? "O-O" : "O-O-O";
+  else {
+    const cap = !!pos.b[m.to] || (t === "p" && m.to === pos.ep);
+    if (t === "p") s = (cap ? FILES[m.from & 7] + "x" : "") + sqName(m.to) + (m.promo ? "=" + m.promo.toUpperCase() : "");
+    else {
+      const rivals = legalMoves(pos).filter(o => o.to === m.to && o.from !== m.from && pos.b[o.from] === p);
+      let dis = "";
+      if (rivals.length) {
+        if (!rivals.some(o => (o.from & 7) === (m.from & 7))) dis = FILES[m.from & 7];
+        else if (!rivals.some(o => (o.from >> 3) === (m.from >> 3))) dis = String((m.from >> 3) + 1);
+        else dis = sqName(m.from);
+      }
+      s = t.toUpperCase() + dis + (cap ? "x" : "") + sqName(m.to);
+    }
+  }
+  const n = makeMove(pos, m);
+  if (inCheck(n)) s += legalMoves(n).length ? "+" : "#";
+  return s;
+}
+function moveLabel(pos, m) { return pos.w ? `${pos.fm}. ${san(pos, m)}` : `${pos.fm}...${san(pos, m)}`; }
+function isMate(pos) { return inCheck(pos) && legalMoves(pos).length === 0; }
+
+/* ------------------------------------------------------------------ deck */
+function slimCrux(c) {
+  const t = c.teacher || null;
+  const lineOf = facts => ({ u: facts.map(f => f.uci).slice(0, 16), l: facts.map(f => f.label || f.san || f.uci).slice(0, 16) });
+  // The teacher's line up to the end of the puzzle, or its payoff if that comes later (as make_practice.py).
+  const p = t && t.payoff && Number.isInteger(t.payoff.ply) ? t.payoff.ply : -1;
+  const x = t && Number.isInteger(t.until) ? t.until : -1;
+  const teacher = t ? lineOf(t.line.slice(0, x > 0 ? Math.max(x, p + 1) : 16)) : { u: [], l: [] };
+  teacher.p = p; teacher.x = x;
+  teacher.e = t ? t.line.findIndex(f => f.engine) : -1;
+  teacher.c = t && t.end && t.end.choices ? t.end.choices.map(ch => ch.san) : [];
+  return {
+    id: c.crux_id, pz: c.puzzle, r: c.rating, th: c.themes || [], s: (c.solver || "white")[0],
+    fen: c.fen, lm: c.last_move || "", ctx: (c.path && c.path.length ? c.path[c.path.length - 1] : ""),
+    t: teacher, m: (c.mistakes || []).slice(0, 2).map(m => lineOf(m.line.slice(0, 8)))
+  };
+}
+function buildDeck(groupsJson, cruxLines, name) {
+  const byId = new Map();
+  for (const line of cruxLines) {
+    if (!line.trim()) continue;
+    const c = JSON.parse(line);
+    if (c.crux_id && c.teacher) byId.set(c.crux_id, c);
+  }
+  const groups = [], used = new Set();
+  for (const g of groupsJson.groups || []) {
+    const members = (g.members || []).filter(id => byId.has(id));
+    if (members.length < 2) continue;
+    const primers = (g.primers || []).filter(id => members.includes(id));
+    groups.push({ sig: (primers[0] || members[0]), members, primers: primers.length ? primers : members.slice(0, 2) });
+    members.forEach(id => used.add(id));
+  }
+  const cruxes = [...used].map(id => slimCrux(byId.get(id)));
+  return { name, groups, cruxes };
+}
+
+/* ------------------------------------------------------------------ storage */
+/*
+ * Progress lives in two places:
+ *  - this browser (localStorage), saved after every puzzle;
+ *  - on a website (GitHub Pages and the like), that's all: the browser keeps it for the site,
+ *    and Settings has Export / Import to back it up or move it to another device;
+ *  - progress.js in this folder, which the page reads on start with a plain <script> tag.
+ *    Opened through the launcher (start_crux_drills.py, "Start Crux Drills"), any browser
+ *    autosaves it after every puzzle. Opened as a file, Chrome and Edge can write it directly
+ *    once you connect the folder (File System Access); other browsers get a "Save progress"
+ *    button that saves progress.js for you to put here.
+ * Whichever copy is newer wins when the page opens.
+ */
+const PAGE_KEY = "cruxdrills:" + decodeURIComponent(location.pathname.replace(/[^/]*$/, ""));
+const lsGet = k => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
+const PROGRESS_FILE = "progress.js";
+
+const idb = {
+  open() {
+    return new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open("cruxdrills", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      } catch (e) { rej(e); }
+    });
+  },
+  async get(k) { const db = await this.open(); return new Promise(res => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); }); },
+  async set(k, v) { const db = await this.open(); return new Promise(res => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = () => res(); t.onerror = () => res(); }); }
+};
+
+const DEFAULT_SETTINGS = { auto: false, autoMiss: false, drag: true, until: "end", newPerDay: 3, themes: false };
+const store = {
+  canWrite: typeof window.showDirectoryPicker === "function",
+  dir: null, needsPermission: false, inFlight: false, dirty: false, unsaved: 0,
+  server: false, serverDown: false,   // opened through the launcher, which writes progress.js
+  hosted: false, persistAsked: false, // opened from a website: saved in the browser for that site
+  serialize(state) {
+    return "// Crux Drills progress: written by Crux Drills.html. Keep it next to deck.js.\n"
+         + "window.CRUX_PROGRESS = " + JSON.stringify(state) + ";\n";
+  },
+  async restore() {
+    if (location.protocol === "http:" || location.protocol === "https:") {
+      try {
+        const r = await fetch("__crux__/ping", { cache: "no-store" });
+        if (r.ok && (await r.json()).ok) { this.server = true; return; }
+      } catch (e) { /* not the launcher */ }
+      this.hosted = true; this.canWrite = false;   // a website: there's no folder to write to
+      return;
+    }
+    if (!this.canWrite) return;
+    try {
+      const h = await idb.get(PAGE_KEY + "dir");
+      if (!h) return;
+      const p = await h.queryPermission({ mode: "readwrite" });
+      if (p === "granted") this.dir = h; else { this.needsPermission = true; this.pending = h; }
+    } catch (e) { /* no saved folder */ }
+  },
+  async connect() {
+    let h = this.pending && this.needsPermission ? this.pending : null;
+    if (h) {
+      if ((await h.requestPermission({ mode: "readwrite" })) !== "granted") throw new Error("Permission to save in the folder was not given.");
+    } else {
+      h = await window.showDirectoryPicker({ id: "crux-practice", mode: "readwrite" });
+      let hasDeck = true;
+      try { await h.getFileHandle("deck.js"); } catch (e) { hasDeck = false; }
+      if (!hasDeck) throw new Error(`"${h.name}" has no deck.js. Choose the folder this page is in (the one with deck.js).`);
+    }
+    this.dir = h; this.needsPermission = false; this.pending = null;
+    try { await idb.set(PAGE_KEY + "dir", h); } catch (e) { /* remembered for this visit only */ }
+  },
+  save(state) {
+    state.saved = Date.now();
+    lsSet(PAGE_KEY + "state", state);
+    this.unsaved++;
+    if (this.hosted) {
+      this.unsaved = 0;
+      // Ask the browser to keep this site's storage even when space runs low (once).
+      if (!this.persistAsked && navigator.storage && navigator.storage.persist) {
+        this.persistAsked = true;
+        navigator.storage.persist().catch(() => {});
+      }
+    } else if (this.server) this.writeServer();
+    else if (this.dir) this.writeFile();
+    renderSaveState();
+  },
+  async writeServer() {
+    this.dirty = true;
+    if (this.inFlight) return;
+    this.inFlight = true;
+    while (this.dirty) {
+      this.dirty = false;
+      try {
+        const r = await fetch("__crux__/progress", { method: "POST", cache: "no-store",
+          headers: { "Content-Type": "text/plain;charset=utf-8", "X-Crux-Drills": "1" }, body: this.serialize(app.state) });
+        const res = await r.json().catch(() => ({}));
+        if (!r.ok || !res.ok) throw new Error(res.error || `HTTP ${r.status}`);
+        this.unsaved = 0;
+        if (this.serverDown) { this.serverDown = false; showNotice(""); }
+      } catch (e) {
+        if (!this.serverDown) showNotice("<b>Couldn't reach the launcher</b>, so progress.js isn't being updated. Your progress is kept in this browser meanwhile. Start <b>Start Crux Drills</b> again and keep its window open: the next puzzle saves everything.");
+        this.serverDown = true;
+        break;
+      }
+    }
+    this.inFlight = false;
+    renderSaveState();
+  },
+  async writeFile() {
+    this.dirty = true;
+    if (this.inFlight) return;
+    this.inFlight = true;
+    while (this.dirty) {
+      this.dirty = false;
+      try {
+        const fh = await this.dir.getFileHandle(PROGRESS_FILE, { create: true });
+        const w = await fh.createWritable();
+        await w.write(this.serialize(app.state));
+        await w.close();
+        this.unsaved = 0;
+      } catch (e) {
+        this.dir = null; this.needsPermission = true;
+        showNotice("<b>Couldn't save progress.js.</b> Your progress is still kept in this browser. Click the save status at the top to reconnect the folder.");
+        break;
+      }
+    }
+    this.inFlight = false;
+    renderSaveState();
+  },
+  download(name) {
+    const blob = new Blob([this.serialize(app.state)], { type: "text/javascript" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name || PROGRESS_FILE;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    this.unsaved = 0;
+    renderSaveState();
+  }
+};
+function renderSaveState() {
+  const el = $("saveState"), btn = $("btnSave");
+  if (store.hosted) { el.className = "savestate ok"; el.textContent = "Progress saved in this browser"; btn.hidden = true; return; }
+  if (store.server) {
+    btn.hidden = !store.serverDown; btn.textContent = "Save progress";
+    el.className = "savestate " + (store.serverDown ? "warn" : "ok");
+    el.textContent = store.serverDown ? "Launcher closed: saved in this browser only" : "Autosaving to progress.js";
+    return;
+  }
+  if (store.dir) { el.className = "savestate ok"; el.textContent = "Progress saved to progress.js"; btn.hidden = true; return; }
+  el.className = "savestate warn";
+  if (store.canWrite) {
+    el.textContent = store.needsPermission ? "Saving to the folder is paused" : "Progress saved in this browser only";
+    btn.hidden = false; btn.textContent = store.needsPermission ? "Resume saving" : "Save to folder";
+  } else {
+    el.textContent = store.unsaved ? `${store.unsaved} change${store.unsaved === 1 ? "" : "s"} not in progress.js yet` : "progress.js is up to date";
+    if (!store.unsaved) el.className = "savestate ok";
+    btn.hidden = false; btn.textContent = "Save progress";
+  }
+}
+function openSaveDialog() {
+  const d = $("dlgSave"), text = $("saveText"), btns = $("saveButtons"), st = $("saveStatus");
+  st.textContent = ""; st.className = "status";
+  btns.innerHTML = "";
+  const mk = (label, primary, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (primary ? " primary" : ""); b.textContent = label; b.onclick = fn; btns.appendChild(b); };
+  const launcher = " <br><br>For autosave in any browser, close this page and double-click <b>Start Crux Drills</b> in this folder (or run <b>python3 start_crux_drills.py</b> there); keep its window open while you practise.";
+  if (store.hosted) {
+    text.innerHTML = "Your progress and settings are saved automatically in this browser, for this site, after every puzzle. They stay until you clear this site's data. To keep a backup, or to carry on in another browser or device, export your progress and import it there."
+      + (pwa.available() && !pwa.standalone() ? " Installing the app (Install app at the top, or on iPhone: Share > Add to Home Screen) keeps it safer, but an installed app on iPhone starts with its own progress: import it there." : "");
+    mk("Export progress", true, () => { exportProgress(); st.className = "status ok"; st.textContent = "Exported."; });
+    mk("Import progress", false, () => { d.close(); $("fileImport").click(); });
+  } else if (store.server) {
+    text.innerHTML = "The launcher window was closed, so progress.js isn't being updated. Start <b>Start Crux Drills</b> again and keep its window open; the next puzzle saves everything. Or save progress.js now.";
+    mk("Try again", true, async () => { await store.writeServer(); if (!store.serverDown) { st.className = "status ok"; st.textContent = "Saved to progress.js."; setTimeout(() => d.close(), 700); } else { st.className = "status err"; st.textContent = "Still can't reach the launcher."; } });
+    mk("Save progress", false, () => { store.download(); st.className = "status ok"; st.textContent = "Saved. If your browser put it in Downloads, move it next to deck.js."; });
+  } else if (store.canWrite) {
+    text.innerHTML = store.needsPermission
+      ? "Your browser asks again before this page may keep writing <b>progress.js</b> in its folder. Click <b>Allow</b> to carry on saving there after every puzzle."
+      : "Choose <b>this page's folder</b> (the one with deck.js). After that, your progress and settings are written to <b>progress.js</b> there after every puzzle, so the whole folder can be copied to another computer." + launcher;
+    mk(store.needsPermission ? "Allow" : "Choose folder", true, async () => {
+      try { await store.connect(); await store.writeFile(); st.className = "status ok"; st.textContent = "Saving to progress.js."; setTimeout(() => d.close(), 700); showNotice(""); }
+      catch (e) { if (e && e.name === "AbortError") return; st.className = "status err"; st.textContent = e.message || String(e); }
+    });
+  } else {
+    text.innerHTML = "This browser can't write into the folder by itself. <b>Save progress</b> saves a file called <b>progress.js</b>: put it in this page's folder (next to deck.js), replacing the old one. The page reads it when it opens. Your progress is also kept in this browser meanwhile." + launcher;
+    mk("Save progress", true, () => { store.download(); st.className = "status ok"; st.textContent = "Saved. If your browser put it in Downloads, move it next to deck.js."; });
+  }
+  mk("Close", false, () => d.close());
+  d.showModal();
+}
+
+/* ------------------------------------------------------------------ scheduler */
+const DAY = 86400000, MIN = 60000;
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+function freshState() { return { settings: { ...DEFAULT_SETTINGS }, groups: {}, seen: {}, daily: { date: today(), newDone: 0, reviews: 0 } }; }
+
+const sched = {
+  daily() { const st = app.state; if (st.daily.date !== today()) st.daily = { date: today(), newDone: 0, reviews: 0 }; return st.daily; },
+  gs(sig) { return app.state.groups[sig] || null; },
+  dueList(now) {
+    return app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && s.status !== "new" && s.due <= now; })
+      .sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due);
+  },
+  newList() { return app.deck.groups.filter(g => !this.gs(g.sig)); },
+  counts(now = Date.now()) {
+    const d = this.daily();
+    return {
+      due: this.dueList(now).length,
+      newLeft: Math.max(0, app.state.settings.newPerDay - d.newDone),
+      learned: app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && s.status === "review"; }).length
+    };
+  },
+  /* The next group to practise and which of its puzzles to show. */
+  next(now = Date.now(), ahead = false) {
+    const due = this.dueList(now);
+    let g = due[0] || null;
+    if (!g && this.counts(now).newLeft > 0) g = this.newList()[0] || null;
+    if (!g) {                                       // learn ahead: steps due within 20 minutes
+      g = app.deck.groups.filter(x => { const s = this.gs(x.sig); return s && (s.status === "learning" || s.status === "relearn") && s.due <= now + 20 * MIN; })
+        .sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due)[0] || null;
+    }
+    if (!g && ahead) {
+      g = app.deck.groups.filter(x => this.gs(x.sig) && this.gs(x.sig).status !== "new")
+        .sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due)[0] || null;
+    }
+    if (!g) return null;
+    return { group: g, crux: this.pickCrux(g) };
+  },
+  pickCrux(g) {
+    const s = this.gs(g.sig);
+    if (!s || s.status === "learning") {
+      const step = s ? s.step : 0;                     // new groups start with their primers, in order
+      if (step < g.primers.length) return g.primers[step];
+    }
+    const seen = app.state.seen;
+    const last = s && s.lastCrux;
+    const pool = g.members.filter(id => id !== last);
+    const unseen = pool.filter(id => !seen[id]);
+    if (unseen.length) return unseen[0];
+    return pool.sort((a, b) => (seen[a] || 0) - (seen[b] || 0))[0] || g.members[0];  // interchangeable: least recently seen
+  },
+  grade(g, cruxId, ok, now = Date.now()) {
+    const st = app.state, d = this.daily();
+    let s = st.groups[g.sig];
+    if (!s) { s = st.groups[g.sig] = { status: "learning", step: 0, interval: 0, ease: 2.5, due: now, reps: 0, lapses: 0 }; d.newDone++; }
+    else d.reviews++;
+    st.seen[cruxId] = now;
+    s.lastCrux = cruxId; s.last = now;
+    if (s.status === "learning") {
+      if (ok) {
+        s.step++;
+        if (s.step >= Math.min(g.primers.length, 3)) { s.status = "review"; s.interval = 1; s.due = now + DAY; }
+        else s.due = now + MIN;                       // the next primer comes up soon
+      } else s.due = now + 5 * MIN;
+    } else if (s.status === "relearn") {
+      if (ok) { s.status = "review"; s.interval = Math.max(1, Math.round(s.interval * 0.5)); s.due = now + s.interval * DAY; }
+      else s.due = now + 5 * MIN;
+    } else {
+      if (ok) {
+        s.reps++; s.ease = Math.min(2.8, s.ease + 0.05);
+        s.interval = s.interval < 1 ? 1 : Math.max(s.interval + 1, Math.round(s.interval * s.ease));
+        s.due = now + s.interval * DAY;
+      } else {
+        s.lapses++; s.ease = Math.max(1.3, s.ease - 0.2); s.status = "relearn"; s.due = now + 10 * MIN;
+      }
+    }
+    return s;
+  }
+};
+
+/* ------------------------------------------------------------------ board */
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const boardEl = document.getElementById("board");
+const ui = {
+  pos: null, flip: false, sel: -1, last: null, marks: {}, live: false, onMove: null,
+  squares: [],
+  build() {
+    boardEl.innerHTML = "";
+    this.squares = [];
+    for (let i = 0; i < 64; i++) {
+      const d = document.createElement("div");
+      d.className = "sq";
+      boardEl.appendChild(d);
+      this.squares.push(d);
+    }
+  },
+  sqAt(cell) { const r = cell >> 3, f = cell & 7; return this.flip ? (r * 8 + (7 - f)) : ((7 - r) * 8 + f); },
+  cellOf(sq) { for (let c = 0; c < 64; c++) if (this.sqAt(c) === sq) return c; return -1; },
+  render() {
+    const pos = this.pos, targets = new Set();
+    if (this.sel >= 0 && this.live) legalMoves(pos).filter(m => m.from === this.sel).forEach(m => targets.add(m.to));
+    boardEl.classList.toggle("live", this.live);
+    boardEl.classList.toggle("drag", this.live && app.state.settings.drag);
+    for (let c = 0; c < 64; c++) {
+      const sq = this.sqAt(c), d = this.squares[c], f = sq & 7, r = sq >> 3;
+      d.className = "sq " + ((f + r) % 2 ? "l" : "d");
+      if (this.last && (sq === this.last[0] || sq === this.last[1])) d.classList.add("last");
+      if (this.marks[sq]) d.classList.add(this.marks[sq]);
+      if (sq === this.sel) d.classList.add("sel");
+      d.dataset.sq = sq;
+      let html = "";
+      const p = pos.b[sq];
+      if (p) {
+        const mine = this.live && isWhite(p) === pos.w;
+        html += `<span class="pc ${isWhite(p) ? "w" : "b"}${mine ? " mine" : ""}" data-sq="${sq}">${GLYPH[p.toLowerCase()]}</span>`;
+      }
+      if (targets.has(sq)) html += p ? `<span class="ring"></span>` : `<span class="dot"></span>`;
+      if ((c & 7) === 0) html += `<span class="coord r">${r + 1}</span>`;
+      if (c >= 56) html += `<span class="coord f">${FILES[f]}</span>`;
+      d.innerHTML = html;
+    }
+  },
+  set(pos, last, flip) { this.pos = pos; this.last = last || null; if (flip !== undefined) this.flip = flip; this.sel = -1; this.marks = {}; this.render(); },
+  squareFromPoint(x, y) {
+    const r = boardEl.getBoundingClientRect();
+    if (x < r.left || y < r.top || x >= r.right || y >= r.bottom) return -1;
+    const fc = Math.floor((x - r.left) / (r.width / 8)), rc = Math.floor((y - r.top) / (r.height / 8));
+    return this.sqAt(rc * 8 + fc);
+  },
+  tryMove(from, to) {
+    const cands = legalMoves(this.pos).filter(m => m.from === from && m.to === to);
+    if (!cands.length) return false;
+    this.sel = -1;
+    if (cands.length > 1) { askPromotion(this.pos.w, q => this.onMove(cands.find(m => m.promo === q))); this.render(); return true; }
+    this.onMove(cands[0]);
+    return true;
+  }
+};
+function askPromotion(white, done) {
+  const box = document.getElementById("promo"), ch = document.getElementById("promoChoices");
+  ch.innerHTML = "";
+  for (const q of "qrbn") {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.innerHTML = `<span class="pc ${white ? "w" : "b"}" style="font-size:44px">${GLYPH[q]}</span>`;
+    b.setAttribute("aria-label", { q: "Queen", r: "Rook", b: "Bishop", n: "Knight" }[q]);
+    b.onclick = () => { box.hidden = true; done(q); };
+    ch.appendChild(b);
+  }
+  box.hidden = false;
+}
+
+/* Input: click a piece then a square; or drag (if allowed in Settings). */
+let drag = null;
+boardEl.addEventListener("pointerdown", ev => {
+  if (!ui.live) return;
+  const sq = ui.squareFromPoint(ev.clientX, ev.clientY);
+  if (sq < 0) return;
+  const p = ui.pos.b[sq];
+  const own = p && isWhite(p) === ui.pos.w;
+  if (ui.sel >= 0 && !own) { if (!ui.tryMove(ui.sel, sq)) { ui.sel = -1; ui.render(); } return; }
+  if (!own) return;
+  if (ui.sel >= 0 && ui.sel !== sq && ui.tryMove(ui.sel, sq)) return;
+  const wasSel = ui.sel === sq;
+  ui.sel = sq; ui.render();
+  if (!app.state.settings.drag) { if (wasSel) { ui.sel = -1; ui.render(); } return; }
+  const pc = ui.squares[ui.cellOf(sq)].querySelector(".pc");
+  const ghost = pc.cloneNode(true);
+  ghost.classList.add("ghost");
+  ghost.style.fontSize = getComputedStyle(pc).fontSize;
+  ghost.style.left = ev.clientX + "px"; ghost.style.top = ev.clientY + "px";
+  document.body.appendChild(ghost);
+  pc.classList.add("lifted");
+  drag = { from: sq, ghost, wasSel, moved: false, x: ev.clientX, y: ev.clientY };
+  boardEl.setPointerCapture(ev.pointerId);
+  ev.preventDefault();
+});
+boardEl.addEventListener("pointermove", ev => {
+  if (!drag) return;
+  drag.ghost.style.left = ev.clientX + "px"; drag.ghost.style.top = ev.clientY + "px";
+  if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > 6) drag.moved = true;
+});
+function endDrag(ev) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  d.ghost.remove();
+  const to = ui.squareFromPoint(ev.clientX, ev.clientY);
+  if (to >= 0 && to !== d.from && ui.tryMove(d.from, to)) return;
+  if (to === d.from && !d.moved && d.wasSel) ui.sel = -1;   // a second click on the same piece drops it
+  ui.render();
+}
+boardEl.addEventListener("pointerup", endDrag);
+boardEl.addEventListener("pointercancel", ev => { if (drag) { drag.ghost.remove(); drag = null; ui.render(); } });
+
+/* ------------------------------------------------------------------ puzzle */
+const $ = id => document.getElementById(id);
+const app = {
+  deck: null, state: null, byId: new Map(), groupOf: new Map(),
+  cur: null, timer: null, ahead: false, sessionDone: 0, sessionOk: 0,
+  view: null
+};
+function showNotice(html) { const n = $("notice"); n.innerHTML = html; n.hidden = !html; }
+function setDeck(deck) {
+  app.deck = deck;
+  app.byId = new Map(deck.cruxes.map(c => [c.id, c]));
+  app.groupOf = new Map();
+  deck.groups.forEach((g, i) => { g.num = i; g.members.forEach(id => app.groupOf.set(id, g)); });
+}
+function lastPly(c) {
+  // The index of the last half-move played (yours, or the opponent's reply that ends it).
+  const until = app.state.settings.until, t = c.t, n = t.u.length;
+  if (until === "key" || n === 0) return 0;
+  if (until === "end" && t.x > 0) return Math.min(t.x, n) - 1;
+  return t.p >= 0 ? Math.min(t.p, n - 1) : 0;      // the payoff (also for decks without puzzle ends)
+}
+function positionsOf(fen, ucis) {
+  const out = [{ pos: parseFen(fen), last: null, label: "Start" }];
+  let pos = out[0].pos;
+  for (const u of ucis) {
+    const m = moveFromUci(pos, u);
+    if (!m) break;
+    const label = moveLabel(pos, m);
+    pos = makeMove(pos, m);
+    out.push({ pos, last: [m.from, m.to], label });
+  }
+  return out;
+}
+function updateCounts() {
+  const c = sched.counts();
+  $("nDue").textContent = c.due; $("nNew").textContent = c.newLeft; $("nLearned").textContent = c.learned;
+  $("session").textContent = app.sessionDone ? `This session: ${app.sessionOk} of ${app.sessionDone} solved` : "";
+}
+function nextPuzzle() {
+  clearTimeout(app.timer);
+  $("btnNext").textContent = "Next puzzle";
+  const nx = sched.next(Date.now(), app.ahead);
+  updateCounts();
+  if (!nx) { showDone(); return; }
+  $("done").hidden = true;
+  startPuzzle(nx.group, app.byId.get(nx.crux));
+}
+function showDone() {
+  app.cur = null; ui.live = false; ui.render();
+  const upcoming = app.deck.groups.map(g => sched.gs(g.sig)).filter(s => s && s.status !== "new").map(s => s.due).sort((a, b) => a - b)[0];
+  const left = app.deck.groups.length - Object.keys(app.state.groups).length;
+  let txt = "No groups are due right now.";
+  if (upcoming) { const mins = Math.max(1, Math.round((upcoming - Date.now()) / MIN)); txt += ` The next review is in ${mins < 90 ? mins + " min" : Math.round(mins / 60) + " h"}.`; }
+  if (left > 0) txt += ` ${left} groups are still new; today's limit for new groups is reached (change it in Settings).`;
+  $("doneText").textContent = txt;
+  $("done").hidden = false;
+  $("prompt").textContent = "Done for now"; $("prompt").className = "prompt";
+  $("meta").innerHTML = ""; $("lines").hidden = true;
+  $("verdict").className = "verdict"; $("verdict").innerHTML = `<p>Come back when reviews are due, or practise ahead.</p>`;
+  $("btnShow").disabled = true; $("btnNext").disabled = true;
+}
+function startPuzzle(group, c) {
+  const s = sched.gs(group.sig);
+  const stateName = !s ? "new" : s.status === "learning" ? "new" : s.status;
+  const positions = positionsOf(c.fen, c.t.u);
+  app.cur = { group, c, idx: 0, last: lastPly(c), positions, finished: false, ok: null, stateName };
+  const pos = parseFen(c.fen);
+  const lm = c.lm ? [sqIdx(c.lm.slice(0, 2)), sqIdx(c.lm.slice(2, 4))] : null;
+  ui.onMove = onUserMove;
+  ui.live = true;
+  ui.set(pos, lm, c.s === "b");
+  $("prompt").textContent = (pos.w ? "White" : "Black") + " to move";
+  $("prompt").className = "prompt " + (pos.w ? "w" : "b");
+  const isPrimer = group.primers.includes(c.id);
+  const chip = { new: "New group", review: "Review", relearn: "Relearning" }[stateName] || "Review";
+  const info = [`<span class="chip state-${stateName}">${chip}</span>`, `<span>Group ${group.num + 1} · ${group.members.length} puzzles</span>`];
+  if (isPrimer && stateName === "new") info.push(`<span>Primer ${group.primers.indexOf(c.id) + 1} of ${Math.min(group.primers.length, 3)}</span>`);
+  if (c.ctx) info.push(`<span>after ${escapeHtml(c.ctx)}</span>`);
+  if (app.state.settings.themes) info.push(`<span>${escapeHtml(c.th.filter(t => !/^(short|long|veryLong|middlegame|endgame|opening|master|crushing|advantage)$/.test(t)).join(", "))}</span>`);
+  $("meta").innerHTML = info.join("");
+  const plies = app.cur.last;
+  $("verdict").className = "verdict";
+  const yours = Math.floor(plies / 2) + 1;
+  $("verdict").innerHTML = `<p>${yours > 1 ? `Find the winning line: you play ${yours} moves.` : "Find the best move."}</p>`;
+  $("lines").hidden = true;
+  $("btnShow").disabled = false; $("btnNext").disabled = true;
+  $("done").hidden = true;
+}
+function onUserMove(m) {
+  const cur = app.cur;
+  if (!cur || cur.finished) return;
+  const u = uciOf(m), expect = cur.c.t.u[cur.idx];
+  const before = ui.pos, after = makeMove(before, m);
+  if (u === expect || isMate(after)) {
+    ui.live = false;
+    ui.set(after, [m.from, m.to]);
+    ui.marks[m.to] = "ok"; ui.render();
+    if (isMate(after) || cur.idx >= cur.last || cur.idx + 1 >= cur.c.t.u.length) return finish(true);
+    cur.idx++;
+    setTimeout(() => {                                 // the opponent's reply from the line
+      const reply = moveFromUci(ui.pos, cur.c.t.u[cur.idx]);
+      if (!reply) return finish(true);
+      ui.set(makeMove(ui.pos, reply), [reply.from, reply.to]);
+      cur.idx++;
+      if (cur.idx > cur.last || cur.idx >= cur.c.t.u.length) return finish(true);
+      ui.live = true; ui.render();
+      $("verdict").innerHTML = `<p>Good. Keep going.</p>`;
+    }, 420);
+    return;
+  }
+  ui.live = false;
+  ui.set(after, [m.from, m.to]);
+  ui.marks[m.to] = "no"; ui.render();
+  const tempt = cur.idx === 0 ? cur.c.m.find(x => x.u[0] === u) : null;
+  finish(false, tempt, moveLabel(before, m));
+}
+function finish(ok, tempt, played) {
+  const cur = app.cur;
+  if (!cur || cur.finished) return;
+  cur.finished = true; cur.ok = ok; ui.live = false;
+  const s = sched.grade(cur.group, cur.c.id, ok);
+  store.save(app.state);
+  app.sessionDone++; if (ok) app.sessionOk++;
+  updateCounts();
+  const v = $("verdict");
+  if (ok) {
+    v.className = "verdict good";
+    const choice = cur.last === cur.c.t.x - 1 && cur.c.t.c && cur.c.t.c.length > 1
+      ? `From here ${cur.c.t.c.map(escapeHtml).join(" and ")} both win: the puzzle is over. ` : "";
+    v.innerHTML = `<h3>Solved</h3><p>${choice}${nextText(s)}</p>`;
+  } else {
+    v.className = "verdict bad";
+    if (tempt) v.innerHTML = `<h3>The tempting move</h3><p>${escapeHtml(played)} is what the student plays here. See how it's refuted below. ${nextText(s)}</p>`;
+    else if (played) v.innerHTML = `<h3>Not this one</h3><p>${escapeHtml(played)} misses it. The answer is below. ${nextText(s)}</p>`;
+    else v.innerHTML = `<h3>Answer shown</h3><p>${nextText(s)}</p>`;
+  }
+  showLines(cur, ok ? cur.last + 1 : 0);
+  $("btnShow").disabled = true; $("btnNext").disabled = false;
+  $("btnNext").focus({ preventScroll: true });
+  const st = app.state.settings;
+  if (st.auto && (ok || st.autoMiss)) countdown(ok ? 1 : 4);
+}
+function nextText(s) {
+  if (s.status === "review") { const d = Math.round((s.due - Date.now()) / DAY); return `This group comes back in ${d} day${d === 1 ? "" : "s"}.`; }
+  if (s.status === "relearn") return "This group comes back in a few minutes with another of its puzzles.";
+  return "Another puzzle of this group comes up soon.";
+}
+function countdown(sec) {
+  clearTimeout(app.timer);
+  const btn = $("btnNext");
+  const tick = n => {
+    if (n <= 0) { nextPuzzle(); return; }
+    btn.textContent = `Next puzzle (${n})`;
+    app.timer = setTimeout(() => tick(n - 1), 1000);
+  };
+  tick(sec);
+}
+function showLines(cur, upto) {
+  const c = cur.c, box = $("lines");
+  const sol = cur.positions;
+  const show = Math.min(sol.length - 1, Math.max(cur.last + 3, 4));
+  let html = `<div class="lineblock"><span class="tag sol">Solution</span>`;
+  html += `<span class="mv" data-line="t" data-i="0">start</span> `;
+  for (let i = 1; i <= show; i++) {
+    html += `<span class="mv" data-line="t" data-i="${i}">${escapeHtml(sol[i].label)}</span> `;
+    if (i === c.t.x) html += `<span class="endmark" title="The puzzle ends here: you have a choice again">end</span> `;
+  }
+  html += `</div>`;
+  c.m.forEach((m, k) => {
+    const ps = positionsOf(c.fen, m.u.slice(0, 6));
+    cur["m" + k] = ps;
+    html += `<div class="lineblock"><span class="tag tempt">Tempting</span>`;
+    for (let i = 1; i < ps.length; i++) html += `<span class="mv" data-line="m${k}" data-i="${i}">${escapeHtml(ps[i].label)}</span> `;
+    if (ps.length <= 2) html += `<span style="color:var(--muted);font-family:var(--font-body)">(refutation not explored)</span>`;
+    html += `</div>`;
+  });
+  html += `<div class="meta"><a href="https://lichess.org/training/${encodeURIComponent(c.pz)}" target="_blank" rel="noopener">Puzzle ${escapeHtml(c.pz)} on lichess</a>`
+        + `<span>rating ${c.r}</span><span style="color:var(--muted)">${escapeHtml(c.th.join(" "))}</span></div>`;
+  box.innerHTML = html;
+  box.hidden = false;
+  app.view = { line: "t", i: Math.min(upto, show) };
+  viewAt("t", app.view.i);
+}
+function viewAt(line, i) {
+  const cur = app.cur;
+  if (!cur || !cur.finished) return;
+  const ps = line === "t" ? cur.positions : cur[line];
+  if (!ps || !ps[i]) return;
+  app.view = { line, i };
+  ui.live = false;
+  ui.set(ps[i].pos, ps[i].last);
+  document.querySelectorAll("#lines .mv").forEach(el => el.classList.toggle("cur", el.dataset.line === line && +el.dataset.i === i));
+}
+$("lines").addEventListener("click", ev => {
+  const el = ev.target.closest(".mv");
+  if (el) { clearTimeout(app.timer); $("btnNext").textContent = "Next puzzle"; viewAt(el.dataset.line, +el.dataset.i); }
+});
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+
+$("btnShow").addEventListener("click", () => { if (app.cur && !app.cur.finished) finish(false); });
+$("btnNext").addEventListener("click", () => nextPuzzle());
+$("btnExtra").addEventListener("click", () => { app.ahead = true; nextPuzzle(); });
+document.addEventListener("keydown", ev => {
+  if (ev.target.closest("input, select, dialog")) return;
+  if ((ev.key === "Enter" || ev.key === " ") && !$("btnNext").disabled) { ev.preventDefault(); nextPuzzle(); return; }
+  if (!app.cur || !app.cur.finished || !app.view) return;
+  const ps = app.view.line === "t" ? app.cur.positions : app.cur[app.view.line];
+  if (ev.key === "ArrowRight" && app.view.i + 1 < ps.length) { clearTimeout(app.timer); viewAt(app.view.line, app.view.i + 1); ev.preventDefault(); }
+  if (ev.key === "ArrowLeft" && app.view.i > 0) { clearTimeout(app.timer); viewAt(app.view.line, app.view.i - 1); ev.preventDefault(); }
+});
+
+/* ------------------------------------------------------------------ settings */
+const dlgS = $("dlgSettings");
+$("btnSettings").addEventListener("click", () => {
+  const s = app.state.settings;
+  $("optAuto").checked = s.auto; $("optAutoMiss").checked = s.autoMiss; $("optDrag").checked = s.drag;
+  $("optUntil").value = s.until; $("optNew").value = s.newPerDay; $("optThemes").checked = s.themes;
+  $("optAutoMiss").disabled = !s.auto;
+  dlgS.showModal();
+});
+$("optAuto").addEventListener("change", () => { $("optAutoMiss").disabled = !$("optAuto").checked; });
+dlgS.addEventListener("close", () => {
+  if (app.importing) return;
+  const s = app.state.settings, before = JSON.stringify(s);
+  s.auto = $("optAuto").checked; s.autoMiss = $("optAutoMiss").checked; s.drag = $("optDrag").checked;
+  s.until = $("optUntil").value; s.newPerDay = Math.max(0, Math.min(50, parseInt($("optNew").value, 10) || 0));
+  s.themes = $("optThemes").checked;
+  if (JSON.stringify(s) !== before) {
+    store.save(app.state);
+    updateCounts();
+    if (app.cur && !app.cur.finished) startPuzzle(app.cur.group, app.cur.c);
+    else if (!app.cur) nextPuzzle();
+    else ui.render();
+  }
+});
+
+$("btnSave").addEventListener("click", openSaveDialog);
+$("saveState").addEventListener("click", () => { if (!store.dir && !(store.server && !store.serverDown)) openSaveDialog(); });
+
+/* ------------------------------------------------------------------ export / import */
+function exportProgress() {
+  store.download(`crux-drills-progress-${today()}.js`);
+}
+function parseProgress(text) {
+  const at = text.indexOf("window.CRUX_PROGRESS =");
+  const json = (at >= 0 ? text.slice(at + "window.CRUX_PROGRESS =".length) : text).trim().replace(/;\s*$/, "");
+  let st = null;
+  try { st = JSON.parse(json); } catch (e) { /* checked below */ }
+  if (!st || typeof st !== "object" || typeof st.groups !== "object") throw new Error("That file isn't Crux Drills progress.");
+  return st;
+}
+async function importProgress(file) {
+  let st;
+  try { st = parseProgress(await file.text()); }
+  catch (e) { showNotice(`<b>Couldn't import ${escapeHtml(file.name)}:</b> ${escapeHtml(e.message || String(e))}`); return; }
+  const known = Object.keys(st.groups).filter(sig => app.deck.groups.some(g => g.sig === sig)).length;
+  const msg = `Replace your progress here with ${file.name}? It has ${Object.keys(st.groups).length} groups started`
+            + (known < Object.keys(st.groups).length ? ` (${known} of them in this puzzle set)` : "") + ".";
+  if (!confirm(msg)) return;
+  app.importing = true;
+  dlgS.close();
+  app.state = Object.assign(freshState(), st, { settings: { ...DEFAULT_SETTINGS, ...(st.settings || {}) } });
+  app.state.saved = Date.now();
+  lsSet(PAGE_KEY + "state", app.state);
+  if (store.server) await store.writeServer();
+  else if (store.dir) await store.writeFile();
+  location.reload();
+}
+$("btnExport").addEventListener("click", exportProgress);
+$("btnImport").addEventListener("click", () => $("fileImport").click());
+$("fileImport").addEventListener("change", ev => { const f = ev.target.files[0]; ev.target.value = ""; if (f) importProgress(f); });
+
+/* ------------------------------------------------------------------ install as an app */
+/*
+ * On the website (publish_site.py adds a manifest and sw.js), the page can be installed as an
+ * app: an icon, its own window, and it opens offline. In Chrome / Edge / Android an
+ * "Install app" button appears; on iPhone / iPad there's no button, so a note explains
+ * Add to Home Screen, which also stops Safari clearing the progress after a week away.
+ */
+const pwa = {
+  prompt: null,
+  available() { return store.hosted && !!document.querySelector('link[rel="manifest"]'); },
+  standalone() { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; },
+  ios() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); },
+  start() {
+    if (!this.available()) return;
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { /* still works online */ });
+    if (this.standalone()) return;
+    if (this.prompt) $("btnInstall").hidden = false;   // offered before the page knew it's on the website
+    if (this.ios() && !lsGet(PAGE_KEY + "iosNoteDone")) {
+      const started = Object.keys(app.state.groups).length > 0;
+      showNotice("<b>Add Crux Drills to your Home Screen:</b> tap Share, then <b>Add to Home Screen</b>. It opens like an app, and Safari won't clear your progress if you're away for a week."
+        + (started ? " The Home Screen app starts with its own empty progress: in Settings, <b>Export</b> here and <b>Import</b> there." : "")
+        + ' <a href="#" id="lnkIosDone">Don\'t show this again</a>');
+      $("lnkIosDone").addEventListener("click", ev => { ev.preventDefault(); lsSet(PAGE_KEY + "iosNoteDone", true); showNotice(""); });
+    }
+  }
+};
+window.addEventListener("beforeinstallprompt", ev => {
+  ev.preventDefault();
+  pwa.prompt = ev;
+  if (pwa.available()) $("btnInstall").hidden = false;
+});
+window.addEventListener("appinstalled", () => { pwa.prompt = null; $("btnInstall").hidden = true; });
+$("btnInstall").addEventListener("click", async () => {
+  if (!pwa.prompt) return;
+  pwa.prompt.prompt();
+  try { await pwa.prompt.userChoice; } catch (e) { /* dismissed */ }
+  pwa.prompt = null; $("btnInstall").hidden = true;
+});
+
+/* ------------------------------------------------------------------ start */
+function newer(a, b) { if (!a) return b; if (!b) return a; return (a.saved || 0) >= (b.saved || 0) ? a : b; }
+async function start() {
+  ui.build();
+  const deck = window.CRUX_DECK && window.CRUX_DECK.groups ? window.CRUX_DECK : null;
+  setDeck(deck || SAMPLE_DECK);
+  const st = newer(lsGet(PAGE_KEY + "state"), window.CRUX_PROGRESS || null);
+  app.state = st ? Object.assign(freshState(), st, { settings: { ...DEFAULT_SETTINGS, ...(st.settings || {}) } }) : freshState();
+  if (!["end", "key", "payoff"].includes(app.state.settings.until)) app.state.settings.until = "end";  // "the whole line" is gone
+  if (!deck) showNotice("<b>No deck.js next to this page</b>, so these are 8 example puzzles. Run <b>make_practice.py</b> to put your groups in this folder, then reload.");
+  await store.restore();
+  if (store.server) { app.state.saved = app.state.saved || Date.now(); store.writeServer(); }
+  else if (deck && location.protocol === "file:" && store.canWrite && !store.dir && !store.needsPermission) {
+    // Chrome / Edge opened as a file, not saving to the folder yet: offer it up front.
+    showNotice('<b>Turn on autosave:</b> click <a href="#" id="lnkAutosave">Save to folder</a> and choose this page\'s folder (the one with deck.js). '
+             + "Your progress is then written to progress.js there after every puzzle. Until then it's kept in this browser only.");
+    $("lnkAutosave").addEventListener("click", ev => { ev.preventDefault(); openSaveDialog(); });
+  }
+  renderSaveState();
+  pwa.start();
+  nextPuzzle();
+}
+start();
+</script>
+</body>
+</html>
