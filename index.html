@@ -400,7 +400,7 @@ function buildDeck(groupsJson, cruxLines, name) {
     const members = (g.members || []).filter(id => byId.has(id));
     if (members.length < 2) continue;
     const primers = (g.primers || []).filter(id => members.includes(id));
-    groups.push({ sig: (primers[0] || members[0]), members, primers: primers.length ? primers : members.slice(0, 2) });
+    groups.push({ sig: g.sig || primers[0] || members[0], members, primers: primers.length ? primers : members.slice(0, 2) });
     members.forEach(id => used.add(id));
   }
   const cruxes = [...used].map(id => slimCrux(byId.get(id)));
