@@ -150,6 +150,26 @@ dialog::backdrop { background: rgba(0,0,0,.7); }
 .drop code { font-family: var(--font-mono); color: var(--ink); font-size: 13px; }
 .status { font-size: 14px; }
 .status.err { color: var(--bad); } .status.ok { color: var(--good); }
+dialog.wide { width: min(980px, calc(100vw - 32px)); }
+.progbar { display: flex; height: 10px; border-radius: 99px; background: #2a2d34; overflow: hidden; }
+.progbar .seg.review { background: var(--good); } .progbar .seg.learning { background: var(--warn); } .progbar .seg.relearn { background: var(--bad); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend .tile { width: 12px; height: 12px; display: inline-block; cursor: default; }
+.legend .sortby { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+.legend select { background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(16px, 1fr)); gap: 3px; max-height: 46vh; overflow-y: auto; padding: 2px; }
+.tile { aspect-ratio: 1; border: 0; border-radius: 3px; background: #2a2d34; padding: 0; cursor: pointer; }
+.tile.new { background: #2a2d34; }
+.tile.due { box-shadow: 0 0 0 2px var(--accent); }
+.tile.carried { background-image: linear-gradient(135deg, rgba(255,255,255,.35) 0 22%, transparent 22%); }
+.tile.sel { outline: 2px solid #fff; outline-offset: 1px; }
+.tile:hover { filter: brightness(1.25); }
+.progdetail { min-height: 92px; border-top: 1px solid var(--line); padding-top: 10px; }
+.progdetail h3 { margin: 0 0 4px; font: 700 20px/1 var(--font-display); text-transform: uppercase; }
+.progdetail p { margin: 0 0 4px; }
+.progdetail .btn { margin-top: 6px; }
+.hint { color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
 @media (max-width: 640px) { .prompt { font-size: 32px; } .counts { gap: 12px; } }
 </style>
@@ -166,6 +186,7 @@ dialog::backdrop { background: rgba(0,0,0,.7); }
   <span class="savestate" id="saveState"></span>
   <button class="btn" id="btnSave" type="button" hidden>Save progress</button>
   <button class="btn" id="btnInstall" type="button" hidden>Install app</button>
+  <button class="btn" id="btnProgress" type="button">Progress</button>
   <button class="btn" id="btnSettings" type="button">Settings</button>
 </header>
 <div class="notice" id="notice" hidden></div>
@@ -215,6 +236,21 @@ dialog::backdrop { background: rgba(0,0,0,.7); }
   </form>
 </dialog>
 
+<dialog id="dlgProgress" class="wide">
+  <div class="dlg">
+    <h2>Your progress</h2>
+    <p id="progSummary"></p>
+    <div class="progbar" id="progBar"></div>
+    <div class="legend"><span><i class="tile new"></i>New</span><span><i class="tile learning" style="background:var(--warn)"></i>Learning</span>
+      <span><i class="tile relearn" style="background:var(--bad)"></i>Relearning</span>
+      <span><i class="tile" style="background:hsl(145,45%,62%)"></i><i class="tile" style="background:hsl(145,70%,32%)"></i>Learned (deeper: longer between reviews)</span>
+      <span><i class="tile new due"></i>Due now</span>
+      <label class="sortby">Order <select id="progSort"><option value="deck">Biggest groups first</option><option value="progress">By progress</option></select></label></div>
+    <div class="tiles" id="progTiles"></div>
+    <div class="progdetail" id="progDetail"></div>
+    <div class="row"><button class="btn" type="button" id="btnProgClose">Close</button></div>
+  </div>
+</dialog>
 <dialog id="dlgSave">
   <div class="dlg">
     <h2>Save your progress</h2>
@@ -603,7 +639,57 @@ function openSaveDialog() {
 /* ------------------------------------------------------------------ scheduler */
 const DAY = 86400000, MIN = 60000;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
-function freshState() { return { settings: { ...DEFAULT_SETTINGS }, groups: {}, seen: {}, daily: { date: today(), newDone: 0, reviews: 0 } }; }
+function freshState() { return { settings: { ...DEFAULT_SETTINGS }, groups: {}, seen: {}, cruxes: {}, daily: { date: today(), newDone: 0, reviews: 0 } }; }
+
+/*
+ * Progress belongs to groups (their schedule), and every puzzle also keeps its own history
+ * (cruxes[id]: attempts, solved, last time, and the group it was practised in). When the
+ * groups are remade - a puzzle moves to another group, groups merge or split, new groups
+ * appear - the schedule follows the puzzles: a group that keeps its name keeps its schedule;
+ * a new group made of puzzles you've practised takes over the weakest schedule they had
+ * (so nothing you've learned is lost, and nothing is trusted more than before); a new group
+ * of puzzles you haven't practised is simply new. Old groups' schedules are kept, unused.
+ */
+function reconcile() {
+  const st = app.state, now = Date.now();
+  st.cruxes = st.cruxes || {};
+  // History from before puzzles kept their own: what is known of where each was practised.
+  for (const [sig, s] of Object.entries(st.groups)) {
+    for (const id of [sig, s.lastCrux]) {
+      if (id && st.seen[id] && !st.cruxes[id]) st.cruxes[id] = { n: 1, ok: 0, last: st.seen[id], g: sig };
+    }
+  }
+  for (const [id, t] of Object.entries(st.seen)) {
+    if (!st.cruxes[id]) {
+      const g = app.groupOf.get(id);
+      st.cruxes[id] = { n: 1, ok: 0, last: t, g: g && st.groups[g.sig] ? g.sig : null };
+    }
+  }
+  let carried = 0;
+  for (const g of app.deck.groups) {
+    if (st.groups[g.sig]) continue;
+    const played = g.members.map(id => st.cruxes[id]).filter(Boolean);
+    if (!played.length) continue;                          // all new to you: a new group
+    const from = [...new Set(played.map(r => r.g).filter(sig => sig && sig !== g.sig && st.groups[sig]))]
+      .map(sig => st.groups[sig]).filter(s => s.status !== "new");
+    const last = Math.max(...played.map(r => r.last || 0));
+    let s;
+    if (from.length && from.every(x => x.status === "review")) {
+      const weakest = from.reduce((a, b) => (a.interval <= b.interval ? a : b));
+      s = { status: "review", interval: weakest.interval, due: Math.min(...from.map(x => x.due)) };
+    } else if (from.length) {
+      const iv = from.filter(x => x.interval > 0).map(x => x.interval);
+      s = { status: "relearn", interval: Math.max(1, iv.length ? Math.min(...iv) : 1), due: now };
+    } else {
+      s = { status: "review", interval: 1, due: now };      // practised, but where isn't known: due now
+    }
+    st.groups[g.sig] = Object.assign(s, { step: 0, ease: from.length ? from.reduce((a, x) => a + (x.ease || 2.5), 0) / from.length : 2.5,
+      reps: 0, lapses: 0, last, carried: true });
+    carried++;
+  }
+  if (carried) store.save(st);
+  return carried;
+}
 
 const sched = {
   daily() { const st = app.state; if (st.daily.date !== today()) st.daily = { date: today(), newDone: 0, reviews: 0 }; return st.daily; },
@@ -656,6 +742,8 @@ const sched = {
     if (!s) { s = st.groups[g.sig] = { status: "learning", step: 0, interval: 0, ease: 2.5, due: now, reps: 0, lapses: 0 }; d.newDone++; }
     else d.reviews++;
     st.seen[cruxId] = now;
+    const h = st.cruxes[cruxId] || (st.cruxes[cruxId] = { n: 0, ok: 0 });
+    h.n++; if (ok) h.ok++; h.last = now; h.g = g.sig;
     s.lastCrux = cruxId; s.last = now;
     if (s.status === "learning") {
       if (ok) {
@@ -843,7 +931,7 @@ function nextPuzzle() {
 function showDone() {
   app.cur = null; ui.live = false; ui.render();
   const upcoming = app.deck.groups.map(g => sched.gs(g.sig)).filter(s => s && s.status !== "new").map(s => s.due).sort((a, b) => a - b)[0];
-  const left = app.deck.groups.length - Object.keys(app.state.groups).length;
+  const left = app.deck.groups.filter(g => !sched.gs(g.sig)).length;
   let txt = "No groups are due right now.";
   if (upcoming) { const mins = Math.max(1, Math.round((upcoming - Date.now()) / MIN)); txt += ` The next review is in ${mins < 90 ? mins + " min" : Math.round(mins / 60) + " h"}.`; }
   if (left > 0) txt += ` ${left} groups are still new; today's limit for new groups is reached (change it in Settings).`;
@@ -1104,6 +1192,89 @@ $("btnInstall").addEventListener("click", async () => {
   pwa.prompt = null; $("btnInstall").hidden = true;
 });
 
+/* ------------------------------------------------------------------ progress map */
+/*
+ * Every group as a tile: grey = new, amber = learning its primers, red = relearning after a
+ * miss, green = learned (the longer until its next review, the deeper the green). A blue
+ * ring marks groups due now. Groups are interchangeable sets of puzzles, so this is your
+ * progress across every kind of difficulty in the deck. Click a tile for its details.
+ */
+function groupStats(g) {
+  const s = sched.gs(g.sig), now = Date.now();
+  let n = 0, ok = 0, seenPuzzles = 0;
+  for (const id of g.members) { const h = app.state.cruxes[id]; if (h) { n += h.n; ok += h.ok; seenPuzzles++; } }
+  const status = !s ? "new" : s.status;
+  const due = !!s && status !== "new" && s.due <= now;
+  return { s, status, due, n, ok, seenPuzzles };
+}
+function tileColor(st) {
+  if (st.status === "new") return "";
+  if (st.status === "learning") return "var(--warn)";
+  if (st.status === "relearn") return "var(--bad)";
+  const days = Math.max(1, st.s.interval || 1);
+  const k = Math.min(1, Math.log(days) / Math.log(60));     // 1 day .. 2 months
+  return `hsl(145, ${45 + 25 * k}%, ${62 - 30 * k}%)`;
+}
+function whenText(t) {
+  const d = t - Date.now();
+  if (d <= 0) return "now";
+  if (d < 90 * MIN) return `in ${Math.max(1, Math.round(d / MIN))} min`;
+  if (d < 36 * 3600000) return `in ${Math.round(d / 3600000)} h`;
+  return `in ${Math.round(d / DAY)} days`;
+}
+function renderProgress() {
+  const groups = app.deck.groups, sort = $("progSort").value;
+  const stats = new Map(groups.map(g => [g, groupStats(g)]));
+  const rank = { relearn: 0, learning: 1, review: 2, new: 3 };
+  const order = groups.slice();
+  if (sort === "progress") order.sort((a, b) => {
+    const x = stats.get(a), y = stats.get(b);
+    return rank[x.status] - rank[y.status] || ((y.s && y.s.interval) || 0) - ((x.s && x.s.interval) || 0) || a.num - b.num;
+  });
+  const c = { new: 0, learning: 0, relearn: 0, review: 0 };
+  let due = 0;
+  for (const st of stats.values()) { c[st.status]++; if (st.due) due++; }
+  const total = groups.length || 1, pct = x => (100 * x / total).toFixed(2) + "%";
+  $("progSummary").innerHTML = `<b>${c.review}</b> of ${groups.length} groups learned (${Math.round(100 * c.review / total)}%) · `
+    + `${c.learning + c.relearn} in progress · ${c.new} new · ${due} due now`;
+  $("progBar").innerHTML = `<span class="seg review" style="width:${pct(c.review)}"></span>`
+    + `<span class="seg learning" style="width:${pct(c.learning)}"></span><span class="seg relearn" style="width:${pct(c.relearn)}"></span>`;
+  const tiles = $("progTiles");
+  tiles.innerHTML = "";
+  for (const g of order) {
+    const st = stats.get(g), t = document.createElement("button");
+    t.type = "button";
+    t.className = "tile " + st.status + (st.due ? " due" : "") + (st.s && st.s.carried && !st.s.reps && !st.s.lapses ? " carried" : "");
+    t.style.background = tileColor(st);
+    t.title = `Group ${g.num + 1}: ${g.members.length} puzzles, ${st.status === "review" ? "learned" : st.status}`;
+    t.dataset.num = g.num;
+    t.addEventListener("click", () => showGroupDetail(g));
+    tiles.appendChild(t);
+  }
+  if (!app.progSel || !groups.includes(app.progSel)) $("progDetail").innerHTML = `<p class="hint">Click a tile to see that group.</p>`;
+  else showGroupDetail(app.progSel);
+}
+function showGroupDetail(g) {
+  app.progSel = g;
+  document.querySelectorAll("#progTiles .tile").forEach(t => t.classList.toggle("sel", +t.dataset.num === g.num));
+  const st = groupStats(g), s = st.s;
+  const state = { new: "New: starts with its primers", learning: `Learning its primers (${s ? s.step : 0} of ${Math.min(g.primers.length, 3)})`,
+                  relearn: "Relearning after a miss", review: `Learned: reviewed every ${s ? s.interval : 1} day${s && s.interval === 1 ? "" : "s"}` }[st.status];
+  const parts = [`<h3>Group ${g.num + 1}</h3>`, `<p>${state}${s && st.status !== "new" ? ` · next ${whenText(s.due)}` : ""}</p>`,
+    `<p>${g.members.length} puzzles, ${st.seenPuzzles} of them seen · ${st.n ? `solved ${st.ok} of ${st.n} tries` : "not tried yet"}</p>`];
+  if (s && s.carried) parts.push(`<p class="hint">Its puzzles were in other groups before: their progress carried over.</p>`);
+  parts.push(`<button class="btn primary" type="button" id="btnPractiseGroup">Practise this group now</button>`);
+  $("progDetail").innerHTML = parts.join("");
+  $("btnPractiseGroup").addEventListener("click", () => {
+    $("dlgProgress").close();
+    clearTimeout(app.timer);
+    startPuzzle(g, app.byId.get(sched.pickCrux(g)));
+  });
+}
+$("btnProgress").addEventListener("click", () => { renderProgress(); $("dlgProgress").showModal(); });
+$("progSort").addEventListener("change", renderProgress);
+$("btnProgClose").addEventListener("click", () => $("dlgProgress").close());
+
 /* ------------------------------------------------------------------ start */
 function newer(a, b) { if (!a) return b; if (!b) return a; return (a.saved || 0) >= (b.saved || 0) ? a : b; }
 async function start() {
@@ -1115,6 +1286,7 @@ async function start() {
   if (!["end", "key", "payoff"].includes(app.state.settings.until)) app.state.settings.until = "end";  // "the whole line" is gone
   if (!deck) showNotice("<b>No deck.js next to this page</b>, so these are 8 example puzzles. Run <b>make_practice.py</b> to put your groups in this folder, then reload.");
   await store.restore();
+  reconcile();
   if (store.server) { app.state.saved = app.state.saved || Date.now(); store.writeServer(); }
   else if (deck && location.protocol === "file:" && store.canWrite && !store.dir && !store.needsPermission) {
     // Chrome / Edge opened as a file, not saving to the folder yet: offer it up front.
