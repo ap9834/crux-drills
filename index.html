@@ -13,8 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Crux Drills">
 <style>
-/* Plan: a night-study table. Pure black room, the wooden board as the one warm object,
-   cool blue for what you can press, green/red only for the verdict. Board left, coach right. */
+/* A black room and a wooden board. Blue is what you can press; green and red only say how it went. */
 :root {
   color-scheme: dark;
   --bg: #000;
@@ -26,128 +25,116 @@
   --good: #3ddc84;
   --bad: #ff5f57;
   --warn: #ffb020;
-  --light-sq: #f0d9b5;
-  --dark-sq: #b58863;
+  --light-sq: #ecd8b4;
+  --dark-sq: #b08560;
   --font-display: "Bahnschrift", "DIN Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "Cascadia Mono", "Consolas", "SF Mono", ui-monospace, monospace;
+  --bs: min(560px, calc(100vw - 24px));
 }
+@media (min-width: 900px) { :root { --bs: min(clamp(360px, calc(100vh - 150px), 760px), calc(100vw - 460px)); } }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--font-body); }
 button, select, input { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
 
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 14px 20px;
-       border-bottom: 1px solid var(--line); }
-.brand { font: 700 26px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.brand { font: 700 24px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
 .brand span { color: var(--accent); }
-.counts { display: flex; gap: 18px; font-variant-numeric: tabular-nums; }
-.count { display: flex; flex-direction: column; line-height: 1.1; }
-.count b { font: 600 22px/1 var(--font-display); }
-.count small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
-.count.due b { color: var(--accent); }
-.count.new b { color: var(--warn); }
-.count.learned b { color: var(--good); }
+.counts { display: flex; gap: 16px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
+.counts b { font: 600 20px/1 var(--font-display); margin-right: 4px; }
+.counts .due b { color: var(--accent); } .counts .new b { color: var(--warn); } .counts .learned b { color: var(--good); }
 .top .spacer { flex: 1; }
 .savestate { font-size: 13px; color: var(--muted); }
-.savestate.ok { color: var(--good); }
-.savestate.warn { color: var(--warn); }
-.btn[hidden] { display: none; }
+.savestate.ok { color: var(--muted); }
+.savestate.warn { color: var(--warn); cursor: pointer; }
 .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 7px 14px; cursor: pointer; }
-.btn:hover { border-color: var(--accent); }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #00142b; font-weight: 600; }
-.btn.primary:hover { filter: brightness(1.1); }
-.btn:disabled { opacity: .45; cursor: default; }
-
+.btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+.btn.good { border-color: var(--good); color: var(--good); font-weight: 600; }
+.btn.bad { border-color: var(--bad); color: var(--bad); font-weight: 600; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); }
 .notice { margin: 12px 20px 0; padding: 8px 12px; border: 1px solid var(--line); border-left: 3px solid var(--warn);
           background: var(--panel); border-radius: 6px; font-size: 14px; color: var(--muted); }
-.notice b { color: var(--ink); }
-.notice[hidden] { display: none; }
+.notice b { color: var(--ink); } .notice a { color: var(--accent); }
 
-.main { display: flex; flex-wrap: wrap; gap: 28px; padding: 22px 20px 40px; align-items: flex-start; }
-.boardwrap { position: relative; width: min(560px, calc(100vw - 40px)); flex: none; }
+.main { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; align-items: flex-start; padding: 20px; }
+.boardwrap { position: relative; width: var(--bs); flex: none; }
 .board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); aspect-ratio: 1; width: 100%;
-         border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px #3a2a1a, 0 18px 50px rgba(0,0,0,.6);
-         user-select: none; touch-action: none; }
-.sq { position: relative; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; }
+         border-radius: 3px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.6); user-select: none; touch-action: none; }
+.sq { position: relative; min-width: 0; min-height: 0; }
 .sq.l { background: var(--light-sq); } .sq.d { background: var(--dark-sq); }
-.sq.last.l { background: #cdd26a; } .sq.last.d { background: #aaa23a; }
+.sq.last.l { background: #d9d38a; } .sq.last.d { background: #b5a453; }
 .sq.sel { box-shadow: inset 0 0 0 4px rgba(77,159,255,.9); }
-.sq.ok.l { background: #9fe0b0; } .sq.ok.d { background: #5bb478; }
-.sq.no.l { background: #f3a29c; } .sq.no.d { background: #d06a62; }
-.sq .dot { position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(0,0,0,.22); pointer-events: none; }
-.sq .ring { position: absolute; inset: 4%; border-radius: 50%; border: 5px solid rgba(0,0,0,.22); pointer-events: none; }
-.coord { position: absolute; font: 600 11px/1 var(--font-body); pointer-events: none; }
-.coord.f { right: 4px; bottom: 3px; } .coord.r { left: 4px; top: 3px; }
+.sq.ok.l { background: #a5dfb3; } .sq.ok.d { background: #62b37c; }
+.sq.no.l { background: #f0a59e; } .sq.no.d { background: #cf6c63; }
+.sq .dot { position: absolute; left: 36%; top: 36%; width: 28%; height: 28%; border-radius: 50%; background: rgba(0,0,0,.22); pointer-events: none; z-index: 2; }
+.sq .ring { position: absolute; inset: 3%; border-radius: 50%; border: 5px solid rgba(0,0,0,.22); pointer-events: none; z-index: 2; }
+.coord { position: absolute; font: 600 11px/1 var(--font-body); pointer-events: none; z-index: 2; }
+.coord.f { right: 3px; bottom: 2px; } .coord.r { left: 3px; top: 3px; }
 .sq.l .coord { color: var(--dark-sq); } .sq.d .coord { color: var(--light-sq); }
-.pc { font-size: calc(min(560px, 100vw - 40px) / 8 * .78); line-height: 1; cursor: default;
-      font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols2", serif; position: relative; z-index: 1; }
-.pc.w { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000, 0 0 1px #000, 0 1px 2px rgba(0,0,0,.6); }
-.pc.b { color: #111; text-shadow: 0 1px 1px rgba(255,255,255,.25); }
-.board.live .pc.mine { cursor: pointer; }
-.board.live.drag .pc.mine { cursor: grab; }
-.ghost { position: fixed; pointer-events: none; z-index: 50; transform: translate(-50%, -55%); }
+.pc { position: absolute; inset: 0; background: center / 100% no-repeat; z-index: 1; }
+.board.live .pc.mine { cursor: grab; }
+.ghost { position: fixed; pointer-events: none; z-index: 50; transform: translate(-50%, -50%); background: center / 100% no-repeat; }
 .pc.lifted { opacity: .25; }
-.promo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-         background: rgba(0,0,0,.55); z-index: 20; }
-.promo[hidden] { display: none; }
+.arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+.arrows .good { fill: rgba(46, 204, 113, .8); } .arrows .bad { fill: rgba(255, 95, 87, .8); }
+.promo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); z-index: 20; }
 .promo div { display: flex; gap: 6px; background: var(--panel); padding: 10px; border-radius: 8px; border: 1px solid var(--line); }
-.promo button { width: 64px; height: 64px; border-radius: 6px; border: 1px solid var(--line); background: var(--light-sq); cursor: pointer; }
+.promo button { position: relative; width: 64px; height: 64px; border-radius: 6px; border: 1px solid var(--line); background: var(--light-sq); cursor: pointer; }
 
-.coach { flex: 1 1 320px; min-width: 280px; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
-.prompt { font: 700 40px/1 var(--font-display); text-transform: uppercase; letter-spacing: .01em; }
-.prompt.w::before { content: ""; display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: #fff;
-                    margin-right: 12px; vertical-align: 4px; box-shadow: 0 0 0 1px #555; }
-.prompt.b::before { content: ""; display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: #111;
-                    margin-right: 12px; vertical-align: 4px; box-shadow: 0 0 0 1px #777; }
-.meta { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.meta .chip { border: 1px solid var(--line); border-radius: 99px; padding: 1px 10px; }
-.meta .chip.state-new { border-color: var(--warn); color: var(--warn); }
-.meta .chip.state-review { border-color: var(--accent); color: var(--accent); }
-.meta .chip.state-relearn { border-color: var(--bad); color: var(--bad); }
-.meta a { color: var(--accent); text-decoration: none; }
-.verdict { min-height: 54px; border-radius: 8px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line);
-           border-left: 4px solid var(--line); }
-.verdict.good { border-left-color: var(--good); }
-.verdict.bad { border-left-color: var(--bad); }
-.verdict h3 { margin: 0 0 2px; font: 700 22px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; }
-.verdict.good h3 { color: var(--good); } .verdict.bad h3 { color: var(--bad); }
-.verdict p { margin: 0; color: var(--muted); }
-.lines { display: flex; flex-direction: column; gap: 8px; }
-.lines[hidden] { display: none; }
+.side { width: 360px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.prompt { font: 700 34px/1 var(--font-display); text-transform: uppercase; letter-spacing: .01em; white-space: nowrap; }
+.prompt.w::before, .prompt.b::before { content: ""; display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+                                       margin-right: 12px; vertical-align: 3px; }
+.prompt.w::before { background: #fff; box-shadow: 0 0 0 1px #555; }
+.prompt.b::before { background: #111; box-shadow: 0 0 0 1px #777; }
+.msg { color: var(--muted); min-height: 1.45em; }
+.msg h3 { margin: 0 0 4px; font: 700 24px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
+.msg.good h3 { color: var(--good); } .msg.bad h3 { color: var(--bad); }
+.msg p { margin: 0; }
+.actions { display: flex; gap: 10px; }
+.actions .btn { flex: 1; padding: 11px 14px; }
+.lines { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+.linehead { display: flex; align-items: center; justify-content: space-between; }
+.linehead b { font: 600 12px/1 var(--font-body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.stepper { display: flex; gap: 6px; }
+.stepper .btn { padding: 2px 12px; font-size: 18px; line-height: 1.3; }
 .lineblock { font-family: var(--font-mono); font-size: 14px; line-height: 1.9; }
 .lineblock .tag { font: 600 12px/1 var(--font-body); text-transform: uppercase; letter-spacing: .06em; margin-right: 6px; }
 .lineblock .tag.sol { color: var(--good); } .lineblock .tag.tempt { color: var(--bad); }
-.lineblock .endmark { font: 600 11px/1 var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border: 1px solid currentColor; border-radius: 4px; padding: 2px 4px; margin-right: 4px; }
+.lineblock .endmark { font: 600 11px/1 var(--font-body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+                      border: 1px solid currentColor; border-radius: 4px; padding: 2px 4px; margin-right: 4px; }
 .mv { cursor: pointer; padding: 1px 4px; border-radius: 3px; white-space: nowrap; }
 .mv:hover { background: #1a2a3d; }
 .mv.cur { background: var(--accent); color: #00142b; }
-.actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.session { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
-.done { padding: 22px; border: 1px dashed var(--line); border-radius: 10px; text-align: left; }
-.done[hidden] { display: none; }
+.about { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.about a { color: var(--accent); text-decoration: none; }
 .done h2 { margin: 0 0 6px; font: 700 30px/1 var(--font-display); text-transform: uppercase; }
+.done p { margin: 0 0 12px; color: var(--muted); }
+.foot { color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+kbd { font: 600 11px/1 var(--font-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; color: var(--ink); }
 
-dialog { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 0;
-         width: min(520px, calc(100vw - 32px)); }
+dialog { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(500px, calc(100vw - 32px)); }
 dialog::backdrop { background: rgba(0,0,0,.7); }
-.dlg { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
-.dlg h2 { margin: 0; font: 700 26px/1 var(--font-display); text-transform: uppercase; }
+.dlg { padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; }
+.dlg h2 { margin: 0; font: 700 24px/1 var(--font-display); text-transform: uppercase; }
 .dlg p { margin: 0; color: var(--muted); font-size: 14px; }
-.opt { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+.opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); }
 .opt label { font-weight: 600; }
 .opt small { display: block; color: var(--muted); font-weight: 400; font-size: 13px; }
 .opt input[type=number] { width: 72px; background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 .opt select { background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-.switch { appearance: none; width: 44px; height: 24px; border-radius: 99px; background: #2a2d34; position: relative; cursor: pointer; flex: none; margin-top: 2px; }
+.switch { appearance: none; width: 44px; height: 24px; border-radius: 99px; background: #2a2d34; position: relative; cursor: pointer; flex: none; }
 .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #c9ccd3; transition: left .15s; }
 .switch:checked { background: var(--accent); }
 .switch:checked::after { left: 23px; background: #fff; }
-.dlg .row { display: flex; gap: 10px; justify-content: flex-end; }
-.drop { border: 1px dashed var(--line); border-radius: 8px; padding: 16px; text-align: center; color: var(--muted); }
-.drop.over { border-color: var(--accent); color: var(--ink); }
-.drop code { font-family: var(--font-mono); color: var(--ink); font-size: 13px; }
+.dlg .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.dlg .row.nowrap { flex-wrap: nowrap; flex: none; gap: 8px; }
 .status { font-size: 14px; }
 .status.err { color: var(--bad); } .status.ok { color: var(--good); }
 dialog.wide { width: min(980px, calc(100vw - 32px)); }
@@ -160,77 +147,88 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 .legend select { background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(16px, 1fr)); gap: 3px; max-height: 46vh; overflow-y: auto; padding: 2px; }
 .tile { aspect-ratio: 1; border: 0; border-radius: 3px; background: #2a2d34; padding: 0; cursor: pointer; }
-.tile.new { background: #2a2d34; }
 .tile.due { box-shadow: 0 0 0 2px var(--accent); }
 .tile.carried { background-image: linear-gradient(135deg, rgba(255,255,255,.35) 0 22%, transparent 22%); }
+.tile.suspended { opacity: .35; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.25) 0 2px, transparent 2px 5px); }
 .tile.sel { outline: 2px solid #fff; outline-offset: 1px; }
 .tile:hover { filter: brightness(1.25); }
 .progdetail { min-height: 92px; border-top: 1px solid var(--line); padding-top: 10px; }
 .progdetail h3 { margin: 0 0 4px; font: 700 20px/1 var(--font-display); text-transform: uppercase; }
 .progdetail p { margin: 0 0 4px; }
-.progdetail .btn { margin-top: 6px; }
+.progdetail .row { justify-content: flex-start; margin-top: 8px; }
 .hint { color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
-@media (max-width: 640px) { .prompt { font-size: 32px; } .counts { gap: 12px; } }
+@media (max-width: 899px) {
+  .main { padding: 12px 12px 24px; gap: 16px; }
+  .side { width: var(--bs); }
+  .prompt { font-size: 26px; }
+  .keys { display: none; }
+}
+@media (max-width: 640px) {
+  .top { padding: 10px 12px; gap: 8px 12px; }
+  .brand { font-size: 20px; }
+  .counts { order: 3; width: 100%; justify-content: space-between; }
+  .savestate { display: none; }
+  .top .btn { padding: 6px 10px; font-size: 14px; }
+  .dlg .row.nowrap { flex-wrap: wrap; justify-content: flex-start; }
+  .opt:has(.nowrap) { flex-direction: column; align-items: flex-start; }
+}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="brand">Crux <span>Drills</span></div>
   <div class="counts" aria-label="Today">
-    <div class="count due"><b id="nDue">0</b><small>Due</small></div>
-    <div class="count new"><b id="nNew">0</b><small>New today</small></div>
-    <div class="count learned"><b id="nLearned">0</b><small>Groups learned</small></div>
+    <span class="due" title="Groups to review now"><b id="nDue">0</b>due</span>
+    <span class="new" title="New groups you can still start today"><b id="nNew">0</b>new</span>
+    <span class="learned" title="Groups you've learned"><b id="nLearned">0</b>learned</span>
   </div>
   <div class="spacer"></div>
   <span class="savestate" id="saveState"></span>
   <button class="btn" id="btnSave" type="button" hidden>Save progress</button>
   <button class="btn" id="btnInstall" type="button" hidden>Install app</button>
-  <button class="btn" id="btnProgress" type="button">Progress</button>
+  <button class="btn" id="btnProgress" type="button" title="Your progress across all groups (P)">Progress</button>
   <button class="btn" id="btnSettings" type="button">Settings</button>
 </header>
 <div class="notice" id="notice" hidden></div>
-
 <main class="main">
   <div class="boardwrap">
     <div class="board" id="board" aria-label="Chess board"></div>
+    <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
     <div class="promo" id="promo" hidden><div id="promoChoices"></div></div>
   </div>
-  <section class="coach" aria-live="polite">
+  <section class="side" aria-live="polite">
     <div class="prompt" id="prompt">Loading…</div>
-    <div class="meta" id="meta"></div>
-    <div class="verdict" id="verdict"><p id="hint">Find the move. Practising a few puzzles of a group makes the rest of that group easier.</p></div>
-    <div class="lines" id="lines" hidden></div>
+    <div class="msg" id="msg"></div>
     <div class="actions">
-      <button class="btn" id="btnShow" type="button">Show answer</button>
-      <button class="btn primary" id="btnNext" type="button" disabled>Next puzzle</button>
+      <button class="btn" id="btnShow" type="button" title="S">Show answer</button>
+      <button class="btn primary" id="btnNext" type="button" title="Enter" hidden>Next puzzle</button>
+      <button class="btn bad" id="btnMissed" type="button" title="N" hidden>I missed it</button>
+      <button class="btn good" id="btnHad" type="button" title="Y" hidden>I had it</button>
     </div>
-    <div class="session" id="session"></div>
+    <div class="lines" id="lines" hidden></div>
     <div class="done" id="done" hidden>
       <h2>All caught up</h2>
       <p id="doneText"></p>
-      <div class="actions" style="margin-top:12px"><button class="btn" id="btnExtra" type="button">Practise ahead</button></div>
+      <button class="btn" id="btnExtra" type="button">Practise ahead</button>
     </div>
+    <div class="foot"><span id="session"></span><span class="keys" id="keys"></span></div>
   </section>
 </main>
 
 <dialog id="dlgSettings">
-  <form class="dlg" method="dialog" id="formSettings">
+  <form class="dlg" method="dialog">
     <h2>Settings</h2>
-    <div class="opt"><label for="optAuto">Move to the next puzzle automatically<small>After you solve a puzzle, the next one starts on its own.</small></label>
-      <input class="switch" type="checkbox" id="optAuto"></div>
-    <div class="opt"><label for="optAutoMiss">…also after a miss<small>Waits a few seconds so you can see the answer first.</small></label>
-      <input class="switch" type="checkbox" id="optAutoMiss"></div>
-    <div class="opt"><label for="optDrag">Drag pieces with the mouse<small>Off: click a piece, then click its square.</small></label>
-      <input class="switch" type="checkbox" id="optDrag"></div>
-    <div class="opt"><label for="optUntil">Play until<small>How much of the winning line you play yourself. A puzzle ends where you have a choice again: a second move would win too.</small></label>
-      <select id="optUntil"><option value="end">The end of the puzzle</option><option value="key">The key move only</option><option value="payoff">The payoff</option></select></div>
-    <div class="opt"><label for="optNew">New groups per day<small>Each new group starts with its primers.</small></label>
-      <input type="number" id="optNew" min="0" max="50" step="1"></div>
-    <div class="opt"><label for="optThemes">Show lichess themes while solving<small>They can give the idea away.</small></label>
-      <input class="switch" type="checkbox" id="optThemes"></div>
-    <div class="opt"><label>Your progress<small>Back it up, or move it to another browser or device.</small></label>
-      <span class="row" style="margin:0"><button class="btn" type="button" id="btnExport">Export</button><button class="btn" type="button" id="btnImport">Import</button></span></div>
+    <div class="opt"><label for="optMode">How you solve<small>Flashcards: solve it in your head, show the answer, then say if you had it.</small></label>
+      <select id="optMode"><option value="play">Play the moves</option><option value="cards">Flashcards</option></select></div>
+    <div class="opt" id="rowAuto"><label for="optAuto">Next puzzle automatically<small>After a solve, the next puzzle starts on its own.</small></label><input class="switch" type="checkbox" id="optAuto"></div>
+    <div class="opt"><label for="optNew">New groups per day</label><input type="number" id="optNew" min="0" max="200" step="1"></div>
+    <div class="opt"><label for="optRevMax">Reviews per day<small>0 = no limit.</small></label><input type="number" id="optRevMax" min="0" max="9999" step="1"></div>
+    <div class="opt"><label for="optLearnN">Solves to learn a new group</label><input type="number" id="optLearnN" min="1" max="6" step="1"></div>
+    <div class="opt"><label for="optSpacing">Time between reviews<small>Applies to every group from its next review.</small></label>
+      <select id="optSpacing"><option value="60">Shorter</option><option value="100">Normal</option><option value="160">Longer</option></select></div>
+    <div class="opt"><label>Your progress<small>Back up, move or start over.</small></label>
+      <span class="row nowrap"><button class="btn" type="button" id="btnExport">Export</button><button class="btn" type="button" id="btnImport">Import</button><button class="btn danger" type="button" id="btnResetAll">Reset</button></span></div>
     <input type="file" id="fileImport" accept=".js,.json,text/javascript,application/json" hidden>
     <div class="row"><button class="btn primary" value="ok" type="submit">Done</button></div>
   </form>
@@ -241,10 +239,10 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
     <h2>Your progress</h2>
     <p id="progSummary"></p>
     <div class="progbar" id="progBar"></div>
-    <div class="legend"><span><i class="tile new"></i>New</span><span><i class="tile learning" style="background:var(--warn)"></i>Learning</span>
-      <span><i class="tile relearn" style="background:var(--bad)"></i>Relearning</span>
+    <div class="legend"><span><i class="tile"></i>New</span><span><i class="tile" style="background:var(--warn)"></i>Learning</span>
+      <span><i class="tile" style="background:var(--bad)"></i>Relearning</span>
       <span><i class="tile" style="background:hsl(145,45%,62%)"></i><i class="tile" style="background:hsl(145,70%,32%)"></i>Learned (deeper: longer between reviews)</span>
-      <span><i class="tile new due"></i>Due now</span>
+      <span><i class="tile due"></i>Due now</span>
       <label class="sortby">Order <select id="progSort"><option value="deck">Biggest groups first</option><option value="progress">By progress</option></select></label></div>
     <div class="tiles" id="progTiles"></div>
     <div class="progdetail" id="progDetail"></div>
@@ -476,7 +474,38 @@ const idb = {
   async set(k, v) { const db = await this.open(); return new Promise(res => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = () => res(); t.onerror = () => res(); }); }
 };
 
-const DEFAULT_SETTINGS = { auto: false, autoMiss: false, drag: true, until: "end", newPerDay: 3, themes: false };
+const DEFAULT_SRS = {
+  reviewsPerDay: 0,        // 0 = no limit
+  newPosition: "after",    // new groups after the reviews, "before", or "mixed"
+  newOrder: "biggest",     // "biggest", "random", "smallest"
+  reviewOrder: "due",      // "due", "weakest", "random"
+  learnN: 3,               // puzzles to solve to learn a group
+  learnStep: 1,            // minutes until the next puzzle of a group you're learning
+  learnMiss: 5,            // minutes until a retry after a miss while learning
+  graduate: 1,             // days until the first review
+  ease: 2.5,               // growth per review for groups started from now on
+  mod: 100,                // interval scale, %
+  maxIv: 365,              // longest interval, days
+  lapseStep: 10,           // minutes until a retry after a missed review
+  lapseKeep: 50,           // share of the interval kept after a missed review, %
+  ahead: 20,               // practise-ahead window, minutes
+  easy: 1.3,               // extra growth for Easy
+  hard: 1.2                // growth for Hard
+};
+/* Settings you can change: how you solve, auto-next, and four schedule knobs. The rest of DEFAULT_SRS is fixed. */
+const DEFAULT_SETTINGS = { mode: "play", auto: false, newPerDay: 3, srs: { ...DEFAULT_SRS } };
+function normalizeSettings(st) {
+  const old = st.settings || {}, srs = old.srs || {};
+  const pick = (k, d) => (typeof srs[k] === "number" && isFinite(srs[k]) ? srs[k] : d);
+  st.settings = {
+    mode: old.mode === "cards" ? "cards" : "play",
+    auto: !!old.auto,
+    newPerDay: typeof old.newPerDay === "number" ? old.newPerDay : DEFAULT_SETTINGS.newPerDay,
+    srs: { ...DEFAULT_SRS, reviewsPerDay: pick("reviewsPerDay", 0), learnN: pick("learnN", DEFAULT_SRS.learnN), mod: pick("mod", 100) }
+  };
+  st.suspended = st.suspended || {};
+  return st;
+}
 const store = {
   canWrite: typeof window.showDirectoryPicker === "function",
   dir: null, needsPermission: false, inFlight: false, dirty: false, unsaved: 0,
@@ -639,7 +668,8 @@ function openSaveDialog() {
 /* ------------------------------------------------------------------ scheduler */
 const DAY = 86400000, MIN = 60000;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
-function freshState() { return { settings: { ...DEFAULT_SETTINGS }, groups: {}, seen: {}, cruxes: {}, daily: { date: today(), newDone: 0, reviews: 0 } }; }
+function freshState() { return { settings: { ...DEFAULT_SETTINGS, srs: { ...DEFAULT_SRS } }, groups: {}, seen: {}, cruxes: {}, suspended: {},
+                                  daily: { date: today(), newDone: 0, reviews: 0 } }; }
 
 /*
  * Progress belongs to groups (their schedule), and every puzzle also keeps its own history
@@ -691,33 +721,57 @@ function reconcile() {
   return carried;
 }
 
+/* A stable shuffle (changes daily) for the "random" orders. */
+function shuffleKey(sig) { let h = 2166136261; for (const ch of sig + today()) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
 const sched = {
+  P() { return app.state.settings.srs; },
   daily() { const st = app.state; if (st.daily.date !== today()) st.daily = { date: today(), newDone: 0, reviews: 0 }; return st.daily; },
   gs(sig) { return app.state.groups[sig] || null; },
-  dueList(now) {
-    return app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && s.status !== "new" && s.due <= now; })
+  active(g) { return !app.state.suspended[g.sig]; },
+  /* Groups you're learning or relearning whose next step is due: not limited per day. */
+  stepsDue(now) {
+    return app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && this.active(g) && (s.status === "learning" || s.status === "relearn") && s.due <= now; })
       .sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due);
   },
-  newList() { return app.deck.groups.filter(g => !this.gs(g.sig)); },
+  reviewsDue(now) {
+    const list = app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && this.active(g) && s.status === "review" && s.due <= now; });
+    const order = this.P().reviewOrder;
+    if (order === "random") return list.sort((a, b) => shuffleKey(a.sig) - shuffleKey(b.sig));
+    if (order === "weakest") return list.sort((a, b) => this.gs(a.sig).interval - this.gs(b.sig).interval || this.gs(a.sig).due - this.gs(b.sig).due);
+    return list.sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due);
+  },
+  reviewsLeft() { const m = this.P().reviewsPerDay; return m > 0 ? Math.max(0, m - this.daily().reviews) : Infinity; },
+  dueList(now) { return this.stepsDue(now).concat(this.reviewsDue(now).slice(0, this.reviewsLeft())); },
+  newList() {
+    const list = app.deck.groups.filter(g => !this.gs(g.sig) && this.active(g));
+    const order = this.P().newOrder;
+    if (order === "random") return list.sort((a, b) => shuffleKey(a.sig) - shuffleKey(b.sig));
+    if (order === "smallest") return list.reverse();
+    return list;
+  },
   counts(now = Date.now()) {
     const d = this.daily();
     return {
       due: this.dueList(now).length,
-      newLeft: Math.max(0, app.state.settings.newPerDay - d.newDone),
+      newLeft: Math.min(Math.max(0, app.state.settings.newPerDay - d.newDone), this.newList().length),
       learned: app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && s.status === "review"; }).length
     };
   },
   /* The next group to practise and which of its puzzles to show. */
   next(now = Date.now(), ahead = false) {
-    const due = this.dueList(now);
-    let g = due[0] || null;
-    if (!g && this.counts(now).newLeft > 0) g = this.newList()[0] || null;
-    if (!g) {                                       // learn ahead: steps due within 20 minutes
-      g = app.deck.groups.filter(x => { const s = this.gs(x.sig); return s && (s.status === "learning" || s.status === "relearn") && s.due <= now + 20 * MIN; })
+    const steps = this.stepsDue(now), reviews = this.reviewsDue(now).slice(0, this.reviewsLeft());
+    const fresh = this.counts(now).newLeft > 0 ? this.newList() : [];
+    const pos = this.P().newPosition, d = this.daily();
+    let g = steps[0] || null;
+    if (!g && fresh.length && (pos === "before" || (pos === "mixed" && reviews.length && (d.newDone + d.reviews) % 3 === 2))) g = fresh[0];
+    if (!g) g = reviews[0] || fresh[0] || null;
+    if (!g) {                                       // learn ahead: steps due soon
+      g = app.deck.groups.filter(x => { const s = this.gs(x.sig); return s && this.active(x) && (s.status === "learning" || s.status === "relearn") && s.due <= now + this.P().ahead * MIN; })
         .sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due)[0] || null;
     }
     if (!g && ahead) {
-      g = app.deck.groups.filter(x => this.gs(x.sig) && this.gs(x.sig).status !== "new")
+      g = app.deck.groups.filter(x => this.gs(x.sig) && this.active(x) && this.gs(x.sig).status !== "new")
         .sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due)[0] || null;
     }
     if (!g) return null;
@@ -736,42 +790,119 @@ const sched = {
     if (unseen.length) return unseen[0];
     return pool.sort((a, b) => (seen[a] || 0) - (seen[b] || 0))[0] || g.members[0];  // interchangeable: least recently seen
   },
-  grade(g, cruxId, ok, now = Date.now()) {
-    const st = app.state, d = this.daily();
+  /* quality: "again" (missed), "hard", "good" or "easy"; true/false mean good/again. */
+  grade(g, cruxId, quality, now = Date.now()) {
+    if (quality === true) quality = "good";
+    if (quality === false) quality = "again";
+    const ok = quality !== "again", P = this.P(), st = app.state, d = this.daily();
     let s = st.groups[g.sig];
-    if (!s) { s = st.groups[g.sig] = { status: "learning", step: 0, interval: 0, ease: 2.5, due: now, reps: 0, lapses: 0 }; d.newDone++; }
-    else d.reviews++;
+    if (!s) { s = st.groups[g.sig] = { status: "learning", step: 0, interval: 0, ease: P.ease, due: now, reps: 0, lapses: 0 }; d.newDone++; }
+    else if (s.status === "review") d.reviews++;
     st.seen[cruxId] = now;
     const h = st.cruxes[cruxId] || (st.cruxes[cruxId] = { n: 0, ok: 0 });
-    h.n++; if (ok) h.ok++; h.last = now; h.g = g.sig;
+    h.n++; if (ok) h.ok++; h.last = now; h.g = g.sig; h.lastOk = ok;
     s.lastCrux = cruxId; s.last = now;
+    const mod = P.mod / 100, cap = iv => Math.max(1, Math.min(P.maxIv, iv));
+    const need = Math.max(1, Math.min(P.learnN, g.members.length));
     if (s.status === "learning") {
-      if (ok) {
+      if (!ok) s.due = now + P.learnMiss * MIN;
+      else if (quality === "easy") { s.status = "review"; s.interval = cap(Math.max(P.graduate + 1, Math.round(P.graduate * 2 * P.easy))); s.due = now + s.interval * DAY; }
+      else if (quality === "hard") s.due = now + P.learnStep * MIN;          // the same step again
+      else {
         s.step++;
-        if (s.step >= Math.min(g.primers.length, 3)) { s.status = "review"; s.interval = 1; s.due = now + DAY; }
-        else s.due = now + MIN;                       // the next primer comes up soon
-      } else s.due = now + 5 * MIN;
+        if (s.step >= need) { s.status = "review"; s.interval = cap(P.graduate); s.due = now + s.interval * DAY; }
+        else s.due = now + P.learnStep * MIN;
+      }
     } else if (s.status === "relearn") {
-      if (ok) { s.status = "review"; s.interval = Math.max(1, Math.round(s.interval * 0.5)); s.due = now + s.interval * DAY; }
-      else s.due = now + 5 * MIN;
+      if (ok) { s.status = "review"; s.interval = cap(Math.round(s.interval * P.lapseKeep / 100)); s.due = now + s.interval * DAY; }
+      else s.due = now + P.lapseStep * MIN;
     } else {
-      if (ok) {
-        s.reps++; s.ease = Math.min(2.8, s.ease + 0.05);
-        s.interval = s.interval < 1 ? 1 : Math.max(s.interval + 1, Math.round(s.interval * s.ease));
-        s.due = now + s.interval * DAY;
-      } else {
-        s.lapses++; s.ease = Math.max(1.3, s.ease - 0.2); s.status = "relearn"; s.due = now + 10 * MIN;
+      const iv = s.interval || 0;
+      if (!ok) { s.lapses++; s.ease = Math.max(1.3, s.ease - 0.2); s.status = "relearn"; s.due = now + P.lapseStep * MIN; }
+      else {
+        s.reps++;
+        let ni;
+        if (quality === "hard") { s.ease = Math.max(1.3, s.ease - 0.15); ni = Math.max(iv + 1, Math.round(iv * P.hard * mod)); }
+        else if (quality === "easy") { s.ease = Math.min(4, s.ease + 0.15); ni = Math.max(iv + 2, Math.round(iv * s.ease * P.easy * mod)); }
+        else { s.ease = Math.min(4, s.ease + 0.05); ni = iv < 1 ? 1 : Math.max(iv + 1, Math.round(iv * s.ease * mod)); }
+        s.interval = cap(ni); s.due = now + s.interval * DAY;
       }
     }
     return s;
   }
 };
 
+/* Undo a grade: what grading changes, saved before it. */
+function snapshot(sig, id) {
+  const st = app.state, c = x => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
+  return { sig, id, g: c(st.groups[sig]), daily: c(st.daily), h: c(st.cruxes[id]), seen: st.seen[id] };
+}
+function restore(sn) {
+  const st = app.state, c = x => JSON.parse(JSON.stringify(x));
+  if (sn.g === undefined) delete st.groups[sn.sig]; else st.groups[sn.sig] = c(sn.g);
+  st.daily = c(sn.daily);
+  if (sn.h === undefined) delete st.cruxes[sn.id]; else st.cruxes[sn.id] = c(sn.h);
+  if (sn.seen === undefined) delete st.seen[sn.id]; else st.seen[sn.id] = sn.seen;
+}
+
 /* ------------------------------------------------------------------ board */
-const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+/* Pieces: an original flat set, drawn in a 45x45 box. */
+// Original piece set, 45x45 units. {F}=body fill, {S}=outline, {D}=detail lines/marks.
+const PIECE_SVG = {
+  p: `<path d="M18.6 20.2C18.4 25.2 15.2 29 13 32.6H32C29.8 29 26.6 25.2 26.4 20.2Z" fill="{F}"/>
+      <rect x="16.2" y="17.6" width="12.6" height="3.4" rx="1.7" fill="{F}"/>
+      <circle cx="22.5" cy="12.2" r="5" fill="{F}"/>
+      <path d="M11.2 37.4C11.2 34.6 12.6 32.6 15 32.6H30C32.4 32.6 33.8 34.6 33.8 37.4Z" fill="{F}"/>
+      <rect x="9.6" y="37" width="25.8" height="3.6" rx="1.6" fill="{F}"/>`,
+  r: `<rect x="9.6" y="37" width="25.8" height="3.6" rx="1.6" fill="{F}"/>
+      <path d="M11.8 37.2C11.8 34.8 12.8 33.2 14.6 33.2H30.4C32.2 33.2 33.2 34.8 33.2 37.2Z" fill="{F}"/>
+      <path d="M15.4 33.2L16.6 17.2H28.4L29.6 33.2Z" fill="{F}"/>
+      <rect x="13.4" y="14.6" width="18.2" height="3.4" rx="1" fill="{F}"/>
+      <path d="M13 15V8.6H17.4V11.2H20.4V8.6H24.6V11.2H27.6V8.6H32V15Z" fill="{F}"/>
+      <path d="M16.8 29.6H28.2M16.2 21H28.8" fill="none" stroke="{D}"/>`,
+  b: `<rect x="9.6" y="37" width="25.8" height="3.6" rx="1.6" fill="{F}"/>
+      <path d="M12.4 37.2C12.4 33.4 15.6 31.4 22.5 31.4C29.4 31.4 32.6 33.4 32.6 37.2Z" fill="{F}"/>
+      <path d="M18.6 31.6L19.6 25.4H25.4L26.4 31.6Z" fill="{F}"/>
+      <rect x="16.4" y="23.2" width="12.2" height="3.2" rx="1.6" fill="{F}"/>
+      <path d="M22.5 8.4C17.2 12.6 14.8 17 15.8 20.6C16.4 22.8 18.8 23.4 22.5 23.4C26.2 23.4 28.6 22.8 29.2 20.6C30.2 17 27.8 12.6 22.5 8.4Z" fill="{F}"/>
+      <circle cx="22.5" cy="6.6" r="2.4" fill="{F}"/>
+      <path d="M25.4 12.4L20.4 17.8" fill="none" stroke="{D}" stroke-width="1.7"/>`,
+  n: `<rect x="9.6" y="37" width="25.8" height="3.6" rx="1.6" fill="{F}"/>
+      <path d="M12.4 37.2C12.4 34.6 13.8 33.2 16 33.2H30.6C32.6 33.2 33.6 34.8 33.6 37.2Z" fill="{F}"/>
+      <path d="M15 33.4C14.6 29.4 16.6 26.4 20.4 23.8C17.8 24.6 15.4 25.8 13.2 26.8C11 27.8 8.8 26.6 8.6 24.4C8.4 22.6 9.6 21.4 11.2 19.6C13.2 17.4 14.4 15.2 15.8 12.8C16.6 11.4 17.6 10.2 18.8 9.4L19.4 5.6L22.2 8.6C23 8.4 23.8 8.4 24.6 8.4C30.4 8.6 34.2 13.8 34.4 20.6C34.6 26 33.2 29.8 31.8 33.4Z" fill="{F}"/>
+      <path d="M25.2 10.6C29.6 12.6 31.6 17 31.6 22.2" fill="none" stroke="{D}"/>
+      <circle cx="17.2" cy="14.8" r="1.25" fill="{D}" stroke="none"/>
+      <path d="M10.4 23.2l1.6-.6" fill="none" stroke="{D}"/>`,
+  q: `<rect x="9.6" y="37" width="25.8" height="3.6" rx="1.6" fill="{F}"/>
+      <path d="M11.4 37.2C11.4 34.4 12.8 32.8 15 32.8H30C32.2 32.8 33.6 34.4 33.6 37.2Z" fill="{F}"/>
+      <path d="M14.4 33C15.4 29 15.6 25.2 14.6 21.4H30.4C29.4 25.2 29.6 29 30.6 33Z" fill="{F}"/>
+      <path d="M13 22.6L10.4 12L15.6 17.4L16.6 9.6L20 16.2L22.5 8.4L25 16.2L28.4 9.6L29.4 17.4L34.6 12L32 22.6Z" fill="{F}"/>
+      <circle cx="10.2" cy="11.2" r="1.9" fill="{F}"/><circle cx="16.6" cy="8.6" r="1.9" fill="{F}"/><circle cx="22.5" cy="7.2" r="1.9" fill="{F}"/>
+      <circle cx="28.4" cy="8.6" r="1.9" fill="{F}"/><circle cx="34.8" cy="11.2" r="1.9" fill="{F}"/>
+      <path d="M14.4 25.8C19.6 24.8 25.4 24.8 30.6 25.8" fill="none" stroke="{D}"/>`,
+  k: `<rect x="9.6" y="37" width="25.8" height="3.6" rx="1.6" fill="{F}"/>
+      <path d="M11.4 37.2C11.4 34.4 12.8 32.8 15 32.8H30C32.2 32.8 33.6 34.4 33.6 37.2Z" fill="{F}"/>
+      <path d="M14.4 33C15.4 29 15.6 25.4 14.6 21.6H30.4C29.4 25.4 29.6 29 30.6 33Z" fill="{F}"/>
+      <rect x="12.6" y="19" width="19.8" height="3.4" rx="1.4" fill="{F}"/>
+      <path d="M14.4 19.2C14.4 14.4 17.8 11.6 22.5 11.6C27.2 11.6 30.6 14.4 30.6 19.2Z" fill="{F}"/>
+      <path d="M21.2 3.2H23.8V5.6H26.2V8.2H23.8V11.8H21.2V8.2H18.8V5.6H21.2Z" fill="{F}"/>
+      <path d="M14.4 25.8C19.6 24.8 25.4 24.8 30.6 25.8" fill="none" stroke="{D}"/>`
+};
+function pieceSvg(t, white) {
+  const F = white ? "#fbfaf6" : "#2c2b29", S = white ? "#1d1c1a" : "#0f0e0d", D = white ? "#1d1c1a" : "#d9d6cf";
+  const body = PIECE_SVG[t].replaceAll("{F}", F).replaceAll("{S}", S).replaceAll("{D}", D);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g stroke="${S}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">${body}</g></svg>`;
+}
+(function pieceStyles() {
+  let css = "";
+  for (const t of "kqrbnp") for (const w of [true, false])
+    css += `.pc.${w ? "w" : "b"}${t}{background-image:url("data:image/svg+xml,${encodeURIComponent(pieceSvg(t, w))}")}\n`;
+  const el = document.createElement("style"); el.textContent = css; document.head.appendChild(el);
+})();
+const pcClass = p => (isWhite(p) ? "w" : "b") + p.toLowerCase();
 const boardEl = document.getElementById("board");
 const ui = {
-  pos: null, flip: false, sel: -1, last: null, marks: {}, live: false, onMove: null,
+  pos: null, flip: false, sel: -1, last: null, marks: {}, live: false, onMove: null, arrows: [],
   squares: [],
   build() {
     boardEl.innerHTML = "";
@@ -789,7 +920,6 @@ const ui = {
     const pos = this.pos, targets = new Set();
     if (this.sel >= 0 && this.live) legalMoves(pos).filter(m => m.from === this.sel).forEach(m => targets.add(m.to));
     boardEl.classList.toggle("live", this.live);
-    boardEl.classList.toggle("drag", this.live && app.state.settings.drag);
     for (let c = 0; c < 64; c++) {
       const sq = this.sqAt(c), d = this.squares[c], f = sq & 7, r = sq >> 3;
       d.className = "sq " + ((f + r) % 2 ? "l" : "d");
@@ -801,15 +931,33 @@ const ui = {
       const p = pos.b[sq];
       if (p) {
         const mine = this.live && isWhite(p) === pos.w;
-        html += `<span class="pc ${isWhite(p) ? "w" : "b"}${mine ? " mine" : ""}" data-sq="${sq}">${GLYPH[p.toLowerCase()]}</span>`;
+        html += `<span class="pc ${pcClass(p)}${mine ? " mine" : ""}" data-sq="${sq}"></span>`;
       }
       if (targets.has(sq)) html += p ? `<span class="ring"></span>` : `<span class="dot"></span>`;
       if ((c & 7) === 0) html += `<span class="coord r">${r + 1}</span>`;
       if (c >= 56) html += `<span class="coord f">${FILES[f]}</span>`;
       d.innerHTML = html;
     }
+    this.drawArrows();
   },
-  set(pos, last, flip) { this.pos = pos; this.last = last || null; if (flip !== undefined) this.flip = flip; this.sel = -1; this.marks = {}; this.render(); },
+  set(pos, last, flip) { this.pos = pos; this.last = last || null; if (flip !== undefined) this.flip = flip; this.sel = -1; this.marks = {}; this.arrows = []; this.render(); },
+  /* Arrows over the board (squares 0..63), drawn in board cells so they follow a flip. */
+  drawArrows() {
+    const svg = document.getElementById("arrows");
+    if (!svg) return;
+    let out = "";
+    for (const a of this.arrows) {
+      const c1 = this.cellOf(a.from), c2 = this.cellOf(a.to);
+      const x1 = (c1 & 7) + .5, y1 = (c1 >> 3) + .5, x2 = (c2 & 7) + .5, y2 = (c2 >> 3) + .5;
+      const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+      if (!len) continue;
+      const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+      const w = .09, hw = .24, hl = .36, start = .18, end = len - .08;
+      const P = (t, o) => `${(x1 + ux * t + px * o).toFixed(3)},${(y1 + uy * t + py * o).toFixed(3)}`;
+      out += `<polygon class="${a.kind === "bad" ? "bad" : a.kind === "hint" ? "hintc" : "good"}" points="${[P(start, -w), P(end - hl, -w), P(end - hl, -hw), P(end, 0), P(end - hl, hw), P(end - hl, w), P(start, w)].join(" ")}"/>`;
+    }
+    svg.innerHTML = out;
+  },
   squareFromPoint(x, y) {
     const r = boardEl.getBoundingClientRect();
     if (x < r.left || y < r.top || x >= r.right || y >= r.bottom) return -1;
@@ -831,7 +979,7 @@ function askPromotion(white, done) {
   for (const q of "qrbn") {
     const b = document.createElement("button");
     b.type = "button";
-    b.innerHTML = `<span class="pc ${white ? "w" : "b"}" style="font-size:44px">${GLYPH[q]}</span>`;
+    b.innerHTML = `<span class="pc ${white ? "w" : "b"}${q}"></span>`;
     b.setAttribute("aria-label", { q: "Queen", r: "Rook", b: "Bishop", n: "Knight" }[q]);
     b.onclick = () => { box.hidden = true; done(q); };
     ch.appendChild(b);
@@ -839,7 +987,7 @@ function askPromotion(white, done) {
   box.hidden = false;
 }
 
-/* Input: click a piece then a square; or drag (if allowed in Settings). */
+/* Input: click a piece then a square, or drag it. */
 let drag = null;
 boardEl.addEventListener("pointerdown", ev => {
   if (!ui.live) return;
@@ -852,11 +1000,11 @@ boardEl.addEventListener("pointerdown", ev => {
   if (ui.sel >= 0 && ui.sel !== sq && ui.tryMove(ui.sel, sq)) return;
   const wasSel = ui.sel === sq;
   ui.sel = sq; ui.render();
-  if (!app.state.settings.drag) { if (wasSel) { ui.sel = -1; ui.render(); } return; }
   const pc = ui.squares[ui.cellOf(sq)].querySelector(".pc");
-  const ghost = pc.cloneNode(true);
-  ghost.classList.add("ghost");
-  ghost.style.fontSize = getComputedStyle(pc).fontSize;
+  const ghost = document.createElement("div"), box = pc.getBoundingClientRect();
+  ghost.className = "ghost";
+  ghost.style.backgroundImage = getComputedStyle(pc).backgroundImage;
+  ghost.style.width = box.width + "px"; ghost.style.height = box.height + "px";
   ghost.style.left = ev.clientX + "px"; ghost.style.top = ev.clientY + "px";
   document.body.appendChild(ghost);
   pc.classList.add("lifted");
@@ -885,7 +1033,7 @@ boardEl.addEventListener("pointercancel", ev => { if (drag) { drag.ghost.remove(
 const $ = id => document.getElementById(id);
 const app = {
   deck: null, state: null, byId: new Map(), groupOf: new Map(),
-  cur: null, timer: null, ahead: false, sessionDone: 0, sessionOk: 0,
+  cur: null, timer: null, playTimer: null, ahead: false, sessionDone: 0, sessionOk: 0,
   view: null
 };
 function showNotice(html) { const n = $("notice"); n.innerHTML = html; n.hidden = !html; }
@@ -896,11 +1044,11 @@ function setDeck(deck) {
   deck.groups.forEach((g, i) => { g.num = i; g.members.forEach(id => app.groupOf.set(id, g)); });
 }
 function lastPly(c) {
-  // The index of the last half-move played (yours, or the opponent's reply that ends it).
-  const until = app.state.settings.until, t = c.t, n = t.u.length;
-  if (until === "key" || n === 0) return 0;
-  if (until === "end" && t.x > 0) return Math.min(t.x, n) - 1;
-  return t.p >= 0 ? Math.min(t.p, n - 1) : 0;      // the payoff (also for decks without puzzle ends)
+  // The last half-move of the puzzle: where you have a choice again (or the payoff, for decks without puzzle ends).
+  const t = c.t, n = t.u.length;
+  if (n === 0) return 0;
+  if (t.x > 0) return Math.min(t.x, n) - 1;
+  return t.p >= 0 ? Math.min(t.p, n - 1) : 0;
 }
 function positionsOf(fen, ucis) {
   const out = [{ pos: parseFen(fen), last: null, label: "Start" }];
@@ -914,14 +1062,25 @@ function positionsOf(fen, ucis) {
   }
   return out;
 }
+const cards = () => app.state.settings.mode === "cards";
 function updateCounts() {
   const c = sched.counts();
   $("nDue").textContent = c.due; $("nNew").textContent = c.newLeft; $("nLearned").textContent = c.learned;
   $("session").textContent = app.sessionDone ? `This session: ${app.sessionOk} of ${app.sessionDone} solved` : "";
+  $("keys").innerHTML = cards()
+    ? "<kbd>Space</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step · <kbd>P</kbd> progress"
+    : "<kbd>S</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step · <kbd>P</kbd> progress";
 }
+function setMsg(cls, html) { const m = $("msg"); m.className = "msg" + (cls ? " " + cls : ""); m.innerHTML = html; }
+/* One step, one set of buttons: Show answer while solving; then Next, or the two flashcard verdicts. */
+function setActions(stage) {
+  $("btnShow").hidden = stage !== "solve";
+  $("btnNext").hidden = stage !== "after";
+  $("btnHad").hidden = $("btnMissed").hidden = stage !== "judge";
+}
+function stopTimers() { clearTimeout(app.timer); clearTimeout(app.playTimer); app.timer = app.playTimer = null; $("btnNext").textContent = "Next puzzle"; }
 function nextPuzzle() {
-  clearTimeout(app.timer);
-  $("btnNext").textContent = "Next puzzle";
+  stopTimers();
   const nx = sched.next(Date.now(), app.ahead);
   updateCounts();
   if (!nx) { showDone(); return; }
@@ -929,45 +1088,35 @@ function nextPuzzle() {
   startPuzzle(nx.group, app.byId.get(nx.crux));
 }
 function showDone() {
-  app.cur = null; ui.live = false; ui.render();
+  app.cur = null; ui.live = false; ui.arrows = []; ui.render();
   const upcoming = app.deck.groups.map(g => sched.gs(g.sig)).filter(s => s && s.status !== "new").map(s => s.due).sort((a, b) => a - b)[0];
-  const left = app.deck.groups.filter(g => !sched.gs(g.sig)).length;
+  const left = app.deck.groups.filter(g => !sched.gs(g.sig) && sched.active(g)).length;
   let txt = "No groups are due right now.";
-  if (upcoming) { const mins = Math.max(1, Math.round((upcoming - Date.now()) / MIN)); txt += ` The next review is in ${mins < 90 ? mins + " min" : Math.round(mins / 60) + " h"}.`; }
-  if (left > 0) txt += ` ${left} groups are still new; today's limit for new groups is reached (change it in Settings).`;
+  if (sched.reviewsLeft() === 0 && sched.reviewsDue(Date.now()).length) txt = "You've done today's reviews.";
+  if (upcoming) txt += ` The next review is ${whenText(upcoming)}.`;
+  if (left > 0) txt += ` ${left} groups are still new; you've started today's new groups.`;
   $("doneText").textContent = txt;
   $("done").hidden = false;
-  $("prompt").textContent = "Done for now"; $("prompt").className = "prompt";
-  $("meta").innerHTML = ""; $("lines").hidden = true;
-  $("verdict").className = "verdict"; $("verdict").innerHTML = `<p>Come back when reviews are due, or practise ahead.</p>`;
-  $("btnShow").disabled = true; $("btnNext").disabled = true;
+  $("prompt").textContent = ""; $("prompt").className = "prompt";
+  setMsg("", ""); $("lines").hidden = true;
+  setActions("none");
 }
 function startPuzzle(group, c) {
+  stopTimers();
   const s = sched.gs(group.sig);
-  const stateName = !s ? "new" : s.status === "learning" ? "new" : s.status;
-  const positions = positionsOf(c.fen, c.t.u);
-  app.cur = { group, c, idx: 0, last: lastPly(c), positions, finished: false, ok: null, stateName };
+  const stateName = !s || s.status === "learning" ? "new" : s.status;
+  app.cur = { group, c, idx: 0, last: lastPly(c), positions: positionsOf(c.fen, c.t.u), finished: false, ok: null, stateName };
+  app.view = null;
   const pos = parseFen(c.fen);
   const lm = c.lm ? [sqIdx(c.lm.slice(0, 2)), sqIdx(c.lm.slice(2, 4))] : null;
   ui.onMove = onUserMove;
-  ui.live = true;
-  ui.set(pos, lm, c.s === "b");
+  ui.live = !cards();
+  ui.set(pos, lm, c.s === "b");                       // always from the solver's side
   $("prompt").textContent = (pos.w ? "White" : "Black") + " to move";
   $("prompt").className = "prompt " + (pos.w ? "w" : "b");
-  const isPrimer = group.primers.includes(c.id);
-  const chip = { new: "New group", review: "Review", relearn: "Relearning" }[stateName] || "Review";
-  const info = [`<span class="chip state-${stateName}">${chip}</span>`, `<span>Group ${group.num + 1} · ${group.members.length} puzzles</span>`];
-  if (isPrimer && stateName === "new") info.push(`<span>Primer ${group.primers.indexOf(c.id) + 1} of ${Math.min(group.primers.length, 3)}</span>`);
-  if (c.ctx) info.push(`<span>after ${escapeHtml(c.ctx)}</span>`);
-  if (app.state.settings.themes) info.push(`<span>${escapeHtml(c.th.filter(t => !/^(short|long|veryLong|middlegame|endgame|opening|master|crushing|advantage)$/.test(t)).join(", "))}</span>`);
-  $("meta").innerHTML = info.join("");
-  const plies = app.cur.last;
-  $("verdict").className = "verdict";
-  const yours = Math.floor(plies / 2) + 1;
-  $("verdict").innerHTML = `<p>${yours > 1 ? `Find the winning line: you play ${yours} moves.` : "Find the best move."}</p>`;
-  $("lines").hidden = true;
-  $("btnShow").disabled = false; $("btnNext").disabled = true;
-  $("done").hidden = true;
+  setMsg("", cards() ? "Solve it in your head, then show the answer." : "");
+  $("lines").hidden = true; $("done").hidden = true;
+  setActions("solve");
 }
 function onUserMove(m) {
   const cur = app.cur;
@@ -978,16 +1127,17 @@ function onUserMove(m) {
     ui.live = false;
     ui.set(after, [m.from, m.to]);
     ui.marks[m.to] = "ok"; ui.render();
-    if (isMate(after) || cur.idx >= cur.last || cur.idx + 1 >= cur.c.t.u.length) return finish(true);
+    if (isMate(after) || cur.idx >= cur.last || cur.idx + 1 >= cur.c.t.u.length) { cur.idx++; return finish(true); }
     cur.idx++;
     setTimeout(() => {                                 // the opponent's reply from the line
+      if (app.cur !== cur || cur.finished) return;
       const reply = moveFromUci(ui.pos, cur.c.t.u[cur.idx]);
       if (!reply) return finish(true);
       ui.set(makeMove(ui.pos, reply), [reply.from, reply.to]);
       cur.idx++;
       if (cur.idx > cur.last || cur.idx >= cur.c.t.u.length) return finish(true);
       ui.live = true; ui.render();
-      $("verdict").innerHTML = `<p>Good. Keep going.</p>`;
+      setMsg("", "Correct. Keep going.");
     }, 420);
     return;
   }
@@ -995,126 +1145,216 @@ function onUserMove(m) {
   ui.set(after, [m.from, m.to]);
   ui.marks[m.to] = "no"; ui.render();
   const tempt = cur.idx === 0 ? cur.c.m.find(x => x.u[0] === u) : null;
+  cur.played = { from: m.from, to: m.to, at: cur.idx };
   finish(false, tempt, moveLabel(before, m));
+}
+/* Where the puzzle stops: a note when more than one move wins from there. */
+function endNote(cur) {
+  return cur.c.t.c && cur.c.t.c.length > 1 ? `From there ${cur.c.t.c.map(escapeHtml).join(" and ")} both win, so the puzzle ends. ` : "";
 }
 function finish(ok, tempt, played) {
   const cur = app.cur;
   if (!cur || cur.finished) return;
-  cur.finished = true; cur.ok = ok; ui.live = false;
-  const s = sched.grade(cur.group, cur.c.id, ok);
+  cur.finished = true; ui.live = false;
+  if (cards()) {                                      // flashcards: show the answer, then you say how it went
+    setMsg("", `<h3>The answer</h3><p>${endNote(cur)}Did you have it?</p>`);
+    setActions("judge");
+    showLines(cur, 0);
+    autoplay(cur);
+    return;
+  }
+  grade(ok);
+  const s = sched.gs(cur.group.sig);
+  if (ok) setMsg("good", `<h3>Solved</h3><p>${endNote(cur)}${nextText(s)}</p>`);
+  else if (tempt) setMsg("bad", `<h3>The tempting move</h3><p>${escapeHtml(played)} is what most players try here. Its refutation is below. ${nextText(s)}</p>`);
+  else if (played) setMsg("bad", `<h3>Not this one</h3><p>${escapeHtml(played)} misses it. ${nextText(s)}</p>`);
+  else setMsg("bad", `<h3>The answer</h3><p>${endNote(cur)}${nextText(s)}</p>`);
+  setActions("after");
+  showLines(cur, ok ? cur.last + 1 : 0);
+  if (!ok) autoplay(cur);
+  $("btnNext").focus({ preventScroll: true });
+  if (ok && app.state.settings.auto) {
+    $("btnNext").textContent = "Next puzzle…";
+    app.timer = setTimeout(nextPuzzle, 1500);
+  }
+}
+function grade(ok) {
+  const cur = app.cur;
+  if (!cur || cur.graded) return;
+  cur.graded = true; cur.ok = ok;
+  sched.grade(cur.group, cur.c.id, ok ? "good" : "again");
   store.save(app.state);
   app.sessionDone++; if (ok) app.sessionOk++;
   updateCounts();
-  const v = $("verdict");
-  if (ok) {
-    v.className = "verdict good";
-    const choice = cur.last === cur.c.t.x - 1 && cur.c.t.c && cur.c.t.c.length > 1
-      ? `From here ${cur.c.t.c.map(escapeHtml).join(" and ")} both win: the puzzle is over. ` : "";
-    v.innerHTML = `<h3>Solved</h3><p>${choice}${nextText(s)}</p>`;
-  } else {
-    v.className = "verdict bad";
-    if (tempt) v.innerHTML = `<h3>The tempting move</h3><p>${escapeHtml(played)} is what the student plays here. See how it's refuted below. ${nextText(s)}</p>`;
-    else if (played) v.innerHTML = `<h3>Not this one</h3><p>${escapeHtml(played)} misses it. The answer is below. ${nextText(s)}</p>`;
-    else v.innerHTML = `<h3>Answer shown</h3><p>${nextText(s)}</p>`;
-  }
-  showLines(cur, ok ? cur.last + 1 : 0);
-  $("btnShow").disabled = true; $("btnNext").disabled = false;
-  $("btnNext").focus({ preventScroll: true });
-  const st = app.state.settings;
-  if (st.auto && (ok || st.autoMiss)) countdown(ok ? 1 : 4);
+  showAbout(cur);
+}
+/* Flashcards: your verdict is the grade, then straight on to the next puzzle. */
+function judge(ok) {
+  const cur = app.cur;
+  if (!cur || !cur.finished || cur.graded || !cards()) return;
+  grade(ok);
+  nextPuzzle();
+}
+/* Play the solution through to the end of the puzzle, one move at a time (any stepping stops it). */
+function autoplay(cur) {
+  clearTimeout(app.playTimer);
+  const go = () => {
+    if (app.cur !== cur || !app.view || app.view.line !== "t" || app.view.i > cur.last) return;
+    viewAt("t", app.view.i + 1);
+    app.playTimer = setTimeout(go, 900);
+  };
+  app.playTimer = setTimeout(go, 1100);
+}
+function whenText(t) {
+  const d = t - Date.now();
+  if (d <= 0) return "now";
+  if (d < 90 * MIN) return `in ${Math.max(1, Math.round(d / MIN))} min`;
+  if (d < 36 * 3600000) return `in ${Math.round(d / 3600000)} h`;
+  const days = Math.round(d / DAY);
+  if (days < 60) return `in ${days} days`;
+  return days < 700 ? `in ${Math.round(days / 30)} months` : `in ${(days / 365).toFixed(1)} years`;
 }
 function nextText(s) {
-  if (s.status === "review") { const d = Math.round((s.due - Date.now()) / DAY); return `This group comes back in ${d} day${d === 1 ? "" : "s"}.`; }
-  if (s.status === "relearn") return "This group comes back in a few minutes with another of its puzzles.";
-  return "Another puzzle of this group comes up soon.";
-}
-function countdown(sec) {
-  clearTimeout(app.timer);
-  const btn = $("btnNext");
-  const tick = n => {
-    if (n <= 0) { nextPuzzle(); return; }
-    btn.textContent = `Next puzzle (${n})`;
-    app.timer = setTimeout(() => tick(n - 1), 1000);
-  };
-  tick(sec);
+  if (!s) return "";
+  if (s.status === "review") return `This group comes back ${whenText(s.due)}.`;
+  if (s.status === "relearn") return `This group comes back ${whenText(s.due)} with another of its puzzles.`;
+  return `Another puzzle of this group comes up ${whenText(s.due)}.`;
 }
 function showLines(cur, upto) {
   const c = cur.c, box = $("lines");
   const sol = cur.positions;
   const show = Math.min(sol.length - 1, Math.max(cur.last + 3, 4));
-  let html = `<div class="lineblock"><span class="tag sol">Solution</span>`;
-  html += `<span class="mv" data-line="t" data-i="0">start</span> `;
+  cur.showN = show;
+  let html = `<div class="linehead"><b>Solution</b><span class="stepper"><button class="btn" type="button" data-step="-1" title="Back (←)" aria-label="Back">‹</button>`
+           + `<button class="btn" type="button" data-step="1" title="Forward (→)" aria-label="Forward">›</button></span></div>`;
+  html += `<div class="lineblock"><span class="mv" data-line="t" data-i="0">start</span> `;
   for (let i = 1; i <= show; i++) {
     html += `<span class="mv" data-line="t" data-i="${i}">${escapeHtml(sol[i].label)}</span> `;
-    if (i === c.t.x) html += `<span class="endmark" title="The puzzle ends here: you have a choice again">end</span> `;
+    if (i === c.t.x) html += `<span class="endmark" title="The puzzle ends here: more than one move wins">end</span> `;
   }
   html += `</div>`;
   c.m.forEach((m, k) => {
     const ps = positionsOf(c.fen, m.u.slice(0, 6));
     cur["m" + k] = ps;
-    html += `<div class="lineblock"><span class="tag tempt">Tempting</span>`;
+    if (ps.length <= 2) return;
+    html += `<div class="lineblock"><span class="tag tempt">Tempting</span><span class="mv" data-line="m${k}" data-i="0">start</span> `;
     for (let i = 1; i < ps.length; i++) html += `<span class="mv" data-line="m${k}" data-i="${i}">${escapeHtml(ps[i].label)}</span> `;
-    if (ps.length <= 2) html += `<span style="color:var(--muted);font-family:var(--font-body)">(refutation not explored)</span>`;
     html += `</div>`;
   });
-  html += `<div class="meta"><a href="https://lichess.org/training/${encodeURIComponent(c.pz)}" target="_blank" rel="noopener">Puzzle ${escapeHtml(c.pz)} on lichess</a>`
-        + `<span>rating ${c.r}</span><span style="color:var(--muted)">${escapeHtml(c.th.join(" "))}</span></div>`;
+  html += `<div class="about" id="about"></div>`;
   box.innerHTML = html;
   box.hidden = false;
+  showAbout(cur);
   app.view = { line: "t", i: Math.min(upto, show) };
   viewAt("t", app.view.i);
 }
+/* After the answer: which group this was, and the puzzle on lichess. */
+function showAbout(cur) {
+  const el = $("about");
+  if (!el || !cur) return;
+  const c = cur.c, s = sched.gs(cur.group.sig);
+  const state = !s ? "new group" : s.status === "learning" ? "learning" : s.status === "relearn" ? "relearning" : "learned";
+  const themes = c.th.filter(t => !/^(short|long|veryLong|middlegame|endgame|opening|master|crushing|advantage|mate|oneMove)$/.test(t));
+  el.innerHTML = `<a href="#" id="lnkGroup">Group ${cur.group.num + 1}</a><span>${state}</span>`
+    + `<a href="https://lichess.org/training/${encodeURIComponent(c.pz)}" target="_blank" rel="noopener">lichess ${escapeHtml(c.pz)}</a>`
+    + `<span>rating ${c.r}</span>${themes.length ? `<span>${escapeHtml(themes.join(", "))}</span>` : ""}`;
+  $("lnkGroup").addEventListener("click", ev => { ev.preventDefault(); openProgress(cur.group); });
+}
+function lineOf(line) { const cur = app.cur; return !cur ? null : line === "t" ? cur.positions.slice(0, (cur.showN || 0) + 1) : cur[line]; }
 function viewAt(line, i) {
   const cur = app.cur;
   if (!cur || !cur.finished) return;
-  const ps = line === "t" ? cur.positions : cur[line];
+  const ps = lineOf(line);
   if (!ps || !ps[i]) return;
   app.view = { line, i };
   ui.live = false;
   ui.set(ps[i].pos, ps[i].last);
+  // Arrows: the next move of this line; where you went wrong, also the move you played.
+  const nxt = ps[i + 1];
+  if (nxt && nxt.last) ui.arrows.push({ from: nxt.last[0], to: nxt.last[1], kind: line === "t" ? "good" : "bad" });
+  if (line === "t" && cur.played && cur.played.at === i) ui.arrows.push({ from: cur.played.from, to: cur.played.to, kind: "bad" });
+  ui.render();
   document.querySelectorAll("#lines .mv").forEach(el => el.classList.toggle("cur", el.dataset.line === line && +el.dataset.i === i));
 }
+function step(delta) {
+  if (!app.view || !app.cur || !app.cur.finished) return;
+  const ps = lineOf(app.view.line);
+  const i = delta === -Infinity ? 0 : delta === Infinity ? ps.length - 1 : app.view.i + delta;
+  if (i < 0 || i >= ps.length) return;
+  stopTimers();
+  viewAt(app.view.line, i);
+}
 $("lines").addEventListener("click", ev => {
+  const st = ev.target.closest("[data-step]");
+  if (st) { step(+st.dataset.step); return; }
   const el = ev.target.closest(".mv");
-  if (el) { clearTimeout(app.timer); $("btnNext").textContent = "Next puzzle"; viewAt(el.dataset.line, +el.dataset.i); }
+  if (el) { stopTimers(); viewAt(el.dataset.line, +el.dataset.i); }
 });
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+function showAnswer() { if (app.cur && !app.cur.finished) finish(false); }
 
-$("btnShow").addEventListener("click", () => { if (app.cur && !app.cur.finished) finish(false); });
+$("btnShow").addEventListener("click", showAnswer);
 $("btnNext").addEventListener("click", () => nextPuzzle());
+$("btnHad").addEventListener("click", () => judge(true));
+$("btnMissed").addEventListener("click", () => judge(false));
 $("btnExtra").addEventListener("click", () => { app.ahead = true; nextPuzzle(); });
 document.addEventListener("keydown", ev => {
-  if (ev.target.closest("input, select, dialog")) return;
-  if ((ev.key === "Enter" || ev.key === " ") && !$("btnNext").disabled) { ev.preventDefault(); nextPuzzle(); return; }
-  if (!app.cur || !app.cur.finished || !app.view) return;
-  const ps = app.view.line === "t" ? app.cur.positions : app.cur[app.view.line];
-  if (ev.key === "ArrowRight" && app.view.i + 1 < ps.length) { clearTimeout(app.timer); viewAt(app.view.line, app.view.i + 1); ev.preventDefault(); }
-  if (ev.key === "ArrowLeft" && app.view.i > 0) { clearTimeout(app.timer); viewAt(app.view.line, app.view.i - 1); ev.preventDefault(); }
+  if (ev.target.closest("input, select, textarea, dialog") || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const k = ev.key, lower = k.toLowerCase(), cur = app.cur;
+  if (k === "Enter" || k === " ") {
+    if (cur && !cur.finished && cards()) { ev.preventDefault(); showAnswer(); }
+    else if (!$("btnNext").hidden) { ev.preventDefault(); nextPuzzle(); }
+    return;
+  }
+  if (k === "ArrowRight") { step(1); ev.preventDefault(); return; }
+  if (k === "ArrowLeft") { step(-1); ev.preventDefault(); return; }
+  if (k === "Home") { step(-Infinity); ev.preventDefault(); return; }
+  if (k === "End") { step(Infinity); ev.preventDefault(); return; }
+  if (lower === "s") showAnswer();
+  else if (lower === "y") judge(true);
+  else if (lower === "n") judge(false);
+  else if (lower === "p") openProgress();
 });
 
 /* ------------------------------------------------------------------ settings */
 const dlgS = $("dlgSettings");
+function closestSpacing(mod) { return ["60", "100", "160"].reduce((a, b) => (Math.abs(b - mod) < Math.abs(a - mod) ? b : a)); }
 $("btnSettings").addEventListener("click", () => {
   const s = app.state.settings;
-  $("optAuto").checked = s.auto; $("optAutoMiss").checked = s.autoMiss; $("optDrag").checked = s.drag;
-  $("optUntil").value = s.until; $("optNew").value = s.newPerDay; $("optThemes").checked = s.themes;
-  $("optAutoMiss").disabled = !s.auto;
+  $("optMode").value = s.mode; $("optAuto").checked = s.auto;
+  $("optNew").value = s.newPerDay; $("optRevMax").value = s.srs.reviewsPerDay; $("optLearnN").value = s.srs.learnN;
+  $("optSpacing").value = closestSpacing(s.srs.mod);
+  $("rowAuto").hidden = s.mode === "cards";
   dlgS.showModal();
 });
-$("optAuto").addEventListener("change", () => { $("optAutoMiss").disabled = !$("optAuto").checked; });
+$("optMode").addEventListener("change", () => { $("rowAuto").hidden = $("optMode").value === "cards"; });
+$("btnResetAll").addEventListener("click", () => {
+  if (!confirm("Forget all your progress here? Your settings stay. This can't be undone (unless you exported your progress).")) return;
+  const settings = app.state.settings;
+  app.state = freshState();
+  app.state.settings = settings;
+  app.state.saved = Date.now();
+  store.save(app.state);
+  app.importing = true; dlgS.close(); app.importing = false;
+  app.sessionDone = app.sessionOk = 0;
+  nextPuzzle();
+});
 dlgS.addEventListener("close", () => {
   if (app.importing) return;
   const s = app.state.settings, before = JSON.stringify(s);
-  s.auto = $("optAuto").checked; s.autoMiss = $("optAutoMiss").checked; s.drag = $("optDrag").checked;
-  s.until = $("optUntil").value; s.newPerDay = Math.max(0, Math.min(50, parseInt($("optNew").value, 10) || 0));
-  s.themes = $("optThemes").checked;
-  if (JSON.stringify(s) !== before) {
-    store.save(app.state);
-    updateCounts();
-    if (app.cur && !app.cur.finished) startPuzzle(app.cur.group, app.cur.c);
-    else if (!app.cur) nextPuzzle();
-    else ui.render();
-  }
+  const num = (id, lo, hi, old) => { const x = parseInt($(id).value, 10); return isFinite(x) ? Math.max(lo, Math.min(hi, x)) : old; };
+  const modeChanged = s.mode !== $("optMode").value;
+  s.mode = $("optMode").value; s.auto = $("optAuto").checked;
+  s.newPerDay = num("optNew", 0, 200, s.newPerDay);
+  s.srs.reviewsPerDay = num("optRevMax", 0, 9999, s.srs.reviewsPerDay);
+  s.srs.learnN = num("optLearnN", 1, 6, s.srs.learnN);
+  if ($("optSpacing").value !== closestSpacing(s.srs.mod)) s.srs.mod = +$("optSpacing").value;
+  if (JSON.stringify(s) === before) return;
+  store.save(app.state);
+  updateCounts();
+  if (!app.cur) nextPuzzle();
+  else if (modeChanged && !app.cur.finished) startPuzzle(app.cur.group, app.cur.c);
+  else if (modeChanged) nextPuzzle();
 });
 
 $("btnSave").addEventListener("click", openSaveDialog);
@@ -1142,7 +1382,7 @@ async function importProgress(file) {
   if (!confirm(msg)) return;
   app.importing = true;
   dlgS.close();
-  app.state = Object.assign(freshState(), st, { settings: { ...DEFAULT_SETTINGS, ...(st.settings || {}) } });
+  app.state = normalizeSettings(Object.assign(freshState(), st));
   app.state.saved = Date.now();
   lsSet(PAGE_KEY + "state", app.state);
   if (store.server) await store.writeServer();
@@ -1204,7 +1444,7 @@ function groupStats(g) {
   let n = 0, ok = 0, seenPuzzles = 0;
   for (const id of g.members) { const h = app.state.cruxes[id]; if (h) { n += h.n; ok += h.ok; seenPuzzles++; } }
   const status = !s ? "new" : s.status;
-  const due = !!s && status !== "new" && s.due <= now;
+  const due = !!s && status !== "new" && s.due <= now && !app.state.suspended[g.sig];
   return { s, status, due, n, ok, seenPuzzles };
 }
 function tileColor(st) {
@@ -1214,13 +1454,6 @@ function tileColor(st) {
   const days = Math.max(1, st.s.interval || 1);
   const k = Math.min(1, Math.log(days) / Math.log(60));     // 1 day .. 2 months
   return `hsl(145, ${45 + 25 * k}%, ${62 - 30 * k}%)`;
-}
-function whenText(t) {
-  const d = t - Date.now();
-  if (d <= 0) return "now";
-  if (d < 90 * MIN) return `in ${Math.max(1, Math.round(d / MIN))} min`;
-  if (d < 36 * 3600000) return `in ${Math.round(d / 3600000)} h`;
-  return `in ${Math.round(d / DAY)} days`;
 }
 function renderProgress() {
   const groups = app.deck.groups, sort = $("progSort").value;
@@ -1244,7 +1477,8 @@ function renderProgress() {
   for (const g of order) {
     const st = stats.get(g), t = document.createElement("button");
     t.type = "button";
-    t.className = "tile " + st.status + (st.due ? " due" : "") + (st.s && st.s.carried && !st.s.reps && !st.s.lapses ? " carried" : "");
+    t.className = "tile " + st.status + (st.due ? " due" : "") + (st.s && st.s.carried && !st.s.reps && !st.s.lapses ? " carried" : "")
+      + (app.state.suspended[g.sig] ? " suspended" : "");
     t.style.background = tileColor(st);
     t.title = `Group ${g.num + 1}: ${g.members.length} puzzles, ${st.status === "review" ? "learned" : st.status}`;
     t.dataset.num = g.num;
@@ -1258,20 +1492,39 @@ function showGroupDetail(g) {
   app.progSel = g;
   document.querySelectorAll("#progTiles .tile").forEach(t => t.classList.toggle("sel", +t.dataset.num === g.num));
   const st = groupStats(g), s = st.s;
-  const state = { new: "New: starts with its primers", learning: `Learning its primers (${s ? s.step : 0} of ${Math.min(g.primers.length, 3)})`,
+  const state = { new: "New: starts with its primers", learning: `Learning (${s ? s.step : 0} of ${Math.max(1, Math.min(sched.P().learnN, g.members.length))} solved)`,
                   relearn: "Relearning after a miss", review: `Learned: reviewed every ${s ? s.interval : 1} day${s && s.interval === 1 ? "" : "s"}` }[st.status];
   const parts = [`<h3>Group ${g.num + 1}</h3>`, `<p>${state}${s && st.status !== "new" ? ` · next ${whenText(s.due)}` : ""}</p>`,
     `<p>${g.members.length} puzzles, ${st.seenPuzzles} of them seen · ${st.n ? `solved ${st.ok} of ${st.n} tries` : "not tried yet"}</p>`];
   if (s && s.carried) parts.push(`<p class="hint">Its puzzles were in other groups before: their progress carried over.</p>`);
-  parts.push(`<button class="btn primary" type="button" id="btnPractiseGroup">Practise this group now</button>`);
+  const susp = !!app.state.suspended[g.sig];
+  if (susp) parts.push(`<p class="hint">Suspended: it doesn't come up in practice.</p>`);
+  parts.push(`<div class="row"><button class="btn primary" type="button" id="btnPractiseGroup">Practise this group now</button>`
+    + `<button class="btn" type="button" id="btnSuspend" title="Leave this group out of practice, or bring it back">${susp ? "Unsuspend" : "Suspend"}</button>`
+    + `<button class="btn danger" type="button" id="btnResetGroup" title="Forget your progress on this group: it starts again as new">Reset</button></div>`);
   $("progDetail").innerHTML = parts.join("");
+  $("btnSuspend").addEventListener("click", () => {
+    if (susp) delete app.state.suspended[g.sig]; else app.state.suspended[g.sig] = true;
+    store.save(app.state); updateCounts(); renderProgress();
+  });
+  $("btnResetGroup").addEventListener("click", () => {
+    if (!confirm(`Forget your progress on group ${g.num + 1}? It starts again as a new group.`)) return;
+    delete app.state.groups[g.sig];
+    for (const id of g.members) { delete app.state.cruxes[id]; delete app.state.seen[id]; }
+    store.save(app.state); updateCounts(); renderProgress();
+  });
   $("btnPractiseGroup").addEventListener("click", () => {
     $("dlgProgress").close();
-    clearTimeout(app.timer);
     startPuzzle(g, app.byId.get(sched.pickCrux(g)));
   });
 }
-$("btnProgress").addEventListener("click", () => { renderProgress(); $("dlgProgress").showModal(); });
+function openProgress(group) {
+  if (group) app.progSel = group;
+  renderProgress();
+  if (!$("dlgProgress").open) $("dlgProgress").showModal();
+  if (group) { const t = document.querySelector(`#progTiles .tile[data-num="${group.num}"]`); if (t) t.scrollIntoView({ block: "nearest" }); }
+}
+$("btnProgress").addEventListener("click", () => openProgress());
 $("progSort").addEventListener("change", renderProgress);
 $("btnProgClose").addEventListener("click", () => $("dlgProgress").close());
 
@@ -1282,8 +1535,7 @@ async function start() {
   const deck = window.CRUX_DECK && window.CRUX_DECK.groups ? window.CRUX_DECK : null;
   setDeck(deck || SAMPLE_DECK);
   const st = newer(lsGet(PAGE_KEY + "state"), window.CRUX_PROGRESS || null);
-  app.state = st ? Object.assign(freshState(), st, { settings: { ...DEFAULT_SETTINGS, ...(st.settings || {}) } }) : freshState();
-  if (!["end", "key", "payoff"].includes(app.state.settings.until)) app.state.settings.until = "end";  // "the whole line" is gone
+  app.state = normalizeSettings(st ? Object.assign(freshState(), st) : freshState());
   if (!deck) showNotice("<b>No deck.js next to this page</b>, so these are 8 example puzzles. Run <b>make_practice.py</b> to put your groups in this folder, then reload.");
   await store.restore();
   reconcile();
