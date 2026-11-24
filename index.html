@@ -12,6 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Crux Drills">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Cg fill="none" stroke="%233b8cff" stroke-linecap="round"%3E%3Ccircle cx="16" cy="16" r="10.5" stroke-width="4"/%3E%3Cpath d="M16 1.75v5.5M16 24.75v5.5M1.75 16h5.5M24.75 16h5.5" stroke-width="4"/%3E%3C/g%3E%3Crect x="11.5" y="11.5" width="9" height="9" rx="1.25" fill="%233b8cff"/%3E%3C/svg%3E">
 <style>
 /* A black room and a wooden board. Blue is what you can press; green and red only say how it went. */
 :root {
@@ -32,7 +33,7 @@
   --font-mono: "Cascadia Mono", "Consolas", "SF Mono", ui-monospace, monospace;
   --bs: min(560px, calc(100vw - 24px));
 }
-@media (min-width: 900px) { :root { --bs: min(clamp(360px, calc(100vh - 150px), 760px), calc(100vw - 460px)); } }
+@media (min-width: 900px) { :root { --bs: min(clamp(360px, calc(100vh - 190px), 760px), calc(100vw - 460px)); } }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--font-body); }
@@ -43,6 +44,7 @@ button, select, input { font: inherit; color: inherit; }
 .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
 .brand { font: 700 24px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
 .brand span { color: var(--accent); }
+.brand .logo { width: 26px; height: 26px; vertical-align: -5px; margin-right: 9px; }
 .counts { display: flex; gap: 16px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
 .counts b { font: 600 20px/1 var(--font-display); margin-right: 4px; }
 .counts .due b { color: var(--accent); } .counts .new b { color: var(--warn); } .counts .learned b { color: var(--good); }
@@ -63,7 +65,13 @@ button, select, input { font: inherit; color: inherit; }
 .notice b { color: var(--ink); } .notice a { color: var(--accent); }
 
 .main { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; align-items: flex-start; padding: 20px; }
-.boardwrap { position: relative; width: var(--bs); flex: none; }
+.boardcol { display: flex; flex-direction: column; gap: 8px; width: var(--bs); flex: none; }
+.boardwrap { position: relative; width: var(--bs); }
+.fenrow { display: flex; gap: 8px; align-items: center; }
+.fenrow.off { visibility: hidden; }
+.fenrow code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px/1 var(--font-mono); color: var(--muted);
+               background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; user-select: all; }
+.fenrow .btn { padding: 5px 12px; font-size: 14px; white-space: nowrap; }
 .board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); aspect-ratio: 1; width: 100%;
          border-radius: 3px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.6); user-select: none; touch-action: none; }
 .sq { position: relative; min-width: 0; min-height: 0; }
@@ -177,7 +185,7 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 </head>
 <body>
 <header class="top">
-  <div class="brand">Crux <span>Drills</span></div>
+  <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><g fill="none" stroke="#3b8cff" stroke-linecap="round"><circle cx="16" cy="16" r="10.5" stroke-width="4"/><path d="M16 1.75v5.5M16 24.75v5.5M1.75 16h5.5M24.75 16h5.5" stroke-width="4"/></g><rect x="11.5" y="11.5" width="9" height="9" rx="1.25" fill="#3b8cff"/></svg>Crux <span>Drills</span></div>
   <div class="counts" aria-label="Today">
     <span class="due" title="Groups to review now"><b id="nDue">0</b>due</span>
     <span class="new" title="New groups you can still start today"><b id="nNew">0</b>new</span>
@@ -188,20 +196,23 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
   <button class="btn" id="btnSave" type="button" hidden>Save progress</button>
   <button class="btn" id="btnInstall" type="button" hidden>Install app</button>
   <button class="btn" id="btnProgress" type="button" title="Your progress across all groups (P)">Progress</button>
-  <button class="btn" id="btnSettings" type="button">Settings</button>
+  <button class="btn" id="btnSettings" type="button" title="S">Settings</button>
 </header>
 <div class="notice" id="notice" hidden></div>
 <main class="main">
-  <div class="boardwrap">
-    <div class="board" id="board" aria-label="Chess board"></div>
-    <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
-    <div class="promo" id="promo" hidden><div id="promoChoices"></div></div>
+  <div class="boardcol">
+    <div class="boardwrap">
+      <div class="board" id="board" aria-label="Chess board"></div>
+      <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
+      <div class="promo" id="promo" hidden><div id="promoChoices"></div></div>
+    </div>
+    <div class="fenrow off" id="fenRow"><code id="fenText" title="The puzzle position"></code><button class="btn" id="btnCopyFen" type="button">Copy FEN</button></div>
   </div>
   <section class="side" aria-live="polite">
     <div class="prompt" id="prompt">Loading…</div>
     <div class="msg" id="msg"></div>
     <div class="actions">
-      <button class="btn" id="btnShow" type="button" title="S">Show answer</button>
+      <button class="btn" id="btnShow" type="button" title="A">Show answer</button>
       <button class="btn primary" id="btnNext" type="button" title="Enter" hidden>Next puzzle</button>
       <button class="btn bad" id="btnMissed" type="button" title="N" hidden>I missed it</button>
       <button class="btn good" id="btnHad" type="button" title="Y" hidden>I had it</button>
@@ -261,7 +272,7 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 <script src="deck.js"></script>
 <script>
 "use strict";
-const SAMPLE_DECK = {"name":"Example deck","example":true,"groups":[{"sig":"kM7tG#0","members":["kM7tG#0","6yrR3#0","u9xvm#0","NUtU9#0"],"primers":["kM7tG#0","6yrR3#0"]},{"sig":"990jb#0","members":["990jb#0","heKt4#0","qg8ZK#0","26c9k#0"],"primers":["990jb#0","heKt4#0"]}],"cruxes":[{"id":"kM7tG#0","pz":"kM7tG","r":1371,"th":["clearance","long","mate","mateIn3","middlegame","sacrifice"],"s":"b","fen":"4r2k/2p2R1p/3b2p1/8/Q7/1pPBq3/1P5P/1K1R4 b - - 0 30","lm":"","ctx":"","t":{"u":["e3d3","d1d3","e8e1","d3d1","e1d1"],"l":["30...Qxd3+","31. Rxd3","31...Re1+","32. Rd1","32...Rxd1#"],"p":4},"m":[{"u":["d6h2"],"l":["30...Bxh2"]}]},{"id":"6yrR3#0","pz":"6yrR3","r":1091,"th":["clearance","endgame","fork","long","mate","mateIn3","sacrifice"],"s":"b","fen":"6k1/1p1q3p/p5pQ/2p5/2PnR3/1P6/P4PPP/6K1 b - - 0 35","lm":"","ctx":"","t":{"u":["d4e2","e4e2","d7d1","e2e1","d1e1"],"l":["35...Ne2+","36. Rxe2","36...Qd1+","37. Re1","37...Qxe1#"],"p":4},"m":[{"u":["d4f5"],"l":["35...Nf5"]}]},{"id":"u9xvm#0","pz":"u9xvm","r":1211,"th":["attraction","exposedKing","long","mate","mateIn3","middlegame","pillsburysMate","sacrifice"],"s":"b","fen":"r6r/p1n1k3/2p5/1p6/4NnP1/4bB2/PP5B/R4R1K b - - 1 31","lm":"","ctx":"","t":{"u":["h8h2","h1h2","a8h8","h2g3","h8h3"],"l":["31...Rxh2+","32. Kxh2","32...Rh8+","33. Kg3","33...Rh3#"],"p":4},"m":[{"u":["c7d5"],"l":["31...Ncd5"]}]},{"id":"NUtU9#0","pz":"NUtU9","r":1413,"th":["discoveredAttack","kingsideAttack","mate","mateIn2","middlegame","short"],"s":"w","fen":"4brk1/1p3p1p/4pp2/1Pp5/2q1P3/r3PR2/5QPP/5R1K w - - 0 31","lm":"","ctx":"","t":{"u":["f3g3","g8h8","f2f6"],"l":["31. Rg3+","31...Kh8","32. Qxf6#"],"p":2},"m":[{"u":["f2g3"],"l":["31. Qg3+"]}]},{"id":"990jb#0","pz":"990jb","r":2259,"th":["crushing","endgame","master","queenEndgame","skewer","veryLong"],"s":"w","fen":"5Q2/8/5pq1/6kp/6p1/5PPP/6K1/8 w - - 2 55","lm":"","ctx":"","t":{"u":["f3f4","g5f5","f8c8","f5e4","c8c2","e4d5","c2g6"],"l":["55. f4+","55...Kf5","56. Qc8+","56...Ke4","57. Qc2+","57...Kd5","58. Qxg6"],"p":6},"m":[{"u":["h3h4"],"l":["55. h4+"]}]},{"id":"heKt4#0","pz":"heKt4","r":892,"th":["crushing","discoveredAttack","kingsideAttack","master","middlegame","short"],"s":"b","fen":"r4rk1/p4ppp/4b3/3qp3/1P1b4/P2Q1B2/3B1PPP/2R2RK1 b - - 1 18","lm":"","ctx":"","t":{"u":["d4f2","f1f2","d5d3","f3a8","f8a8","c1e1","d3a3","e1e5","a3a1"],"l":["18...Bxf2+","19. Rxf2","19...Qxd3","20. Bxa8","20...Rxa8","21. Re1","21...Qxa3","22. Rxe5","22...Qa1+"],"p":2},"m":[{"u":["e5e4","f3e4","d5e5","e4a8","f8a8","d2c3","d4c3"],"l":["18...e4","19. Bxe4","19...Qe5","20. Bxa8","20...Rxa8","21. Bc3","21...Bxc3"]}]},{"id":"qg8ZK#0","pz":"qg8ZK","r":947,"th":["crushing","deflection","opening","short"],"s":"w","fen":"r2qkb1r/4pppp/p1pp4/3nP3/Q2P4/4Bb2/PP3PPP/RN3RK1 w kq - 0 13","lm":"","ctx":"","t":{"u":["a4c6","d8d7","c6a8","d7d8","a8a6"],"l":["13. Qxc6+","13...Qd7","14. Qxa8+","14...Qd8","15. Qxa6"],"p":4},"m":[{"u":["g2f3","d8d7"],"l":["13. gxf3","13...Qd7"]}]},{"id":"26c9k#0","pz":"26c9k","r":1830,"th":["advantage","attraction","kingsideAttack","middlegame","sacrifice","veryLong"],"s":"b","fen":"r3r1k1/p5p1/1p1bNnp1/8/2Pq4/P7/4QPPP/R3RBK1 b - - 0 23","lm":"","ctx":"","t":{"u":["d6h2","g1h2","d4h4","h2g1","f6g4","e2g4","h4g4","e6c7","e8e1"],"l":["23...Bxh2+","24. Kxh2","24...Qh4+","25. Kg1","25...Ng4","26. Qxg4","26...Qxg4","27. Nc7","27...Rxe1"],"p":6},"m":[{"u":["d4h4","g2g3","h4h5","e2b2","d6c5","f1g2","a8c8","g2d5"],"l":["23...Qh4","24. g3","24...Qh5","25. Qb2","25...Bc5","26. Bg2","26...Rac8","27. Bd5"]}]}]};
+const SAMPLE_DECK = {"name":"Example deck","example":true,"groups":[{"sig":"kM7tG#0","members":["kM7tG#0","6yrR3#0","u9xvm#0","NUtU9#0"],"primers":["kM7tG#0","6yrR3#0"]},{"sig":"990jb#0","members":["990jb#0","heKt4#0","qg8ZK#0","26c9k#0"],"primers":["990jb#0","heKt4#0"]}],"cruxes":[{"id":"kM7tG#0","pz":"kM7tG","r":1371,"th":["clearance","long","mate","mateIn3","middlegame","sacrifice"],"s":"b","fen":"4r2k/2p2R1p/3b2p1/8/Q7/1pPBq3/1P5P/1K1R4 b - - 0 30","lm":"","ctx":"","t":{"u":["e3d3","d1d3","e8e1","d3d1","e1d1"],"l":["30...Qxd3+","31. Rxd3","31...Re1+","32. Rd1","32...Rxd1#"],"p":4},"m":[{"u":["d6h2"],"l":["30...Bxh2"]}],"pf":"4r2k/2p2p1p/3b2p1/8/Q7/1pPBq3/1P5P/1K1R1R2 w - - 0 30"},{"id":"6yrR3#0","pz":"6yrR3","r":1091,"th":["clearance","endgame","fork","long","mate","mateIn3","sacrifice"],"s":"b","fen":"6k1/1p1q3p/p5pQ/2p5/2PnR3/1P6/P4PPP/6K1 b - - 0 35","lm":"","ctx":"","t":{"u":["d4e2","e4e2","d7d1","e2e1","d1e1"],"l":["35...Ne2+","36. Rxe2","36...Qd1+","37. Re1","37...Qxe1#"],"p":4},"m":[{"u":["d4f5"],"l":["35...Nf5"]}],"pf":"6k1/1p1q3p/p5pQ/2p5/2Pnp3/1P2R3/P4PPP/6K1 w - - 4 35"},{"id":"u9xvm#0","pz":"u9xvm","r":1211,"th":["attraction","exposedKing","long","mate","mateIn3","middlegame","pillsburysMate","sacrifice"],"s":"b","fen":"r6r/p1n1k3/2p5/1p6/4NnP1/4bB2/PP5B/R4R1K b - - 1 31","lm":"","ctx":"","t":{"u":["h8h2","h1h2","a8h8","h2g3","h8h3"],"l":["31...Rxh2+","32. Kxh2","32...Rh8+","33. Kg3","33...Rh3#"],"p":4},"m":[{"u":["c7d5"],"l":["31...Ncd5"]}],"pf":"r6r/p1n1k3/2p5/1p6/4NnP1/4b3/PP2B2B/R4R1K w - - 0 31"},{"id":"NUtU9#0","pz":"NUtU9","r":1413,"th":["discoveredAttack","kingsideAttack","mate","mateIn2","middlegame","short"],"s":"w","fen":"4brk1/1p3p1p/4pp2/1Pp5/2q1P3/r3PR2/5QPP/5R1K w - - 0 31","lm":"","ctx":"","t":{"u":["f3g3","g8h8","f2f6"],"l":["31. Rg3+","31...Kh8","32. Qxf6#"],"p":2},"m":[{"u":["f2g3"],"l":["31. Qg3+"]}],"pf":"4brk1/1p3ppp/4pN2/1Pp5/2q1P3/r3PR2/5QPP/5R1K b - - 1 30"},{"id":"990jb#0","pz":"990jb","r":2259,"th":["crushing","endgame","master","queenEndgame","skewer","veryLong"],"s":"w","fen":"5Q2/8/5pq1/6kp/6p1/5PPP/6K1/8 w - - 2 55","lm":"","ctx":"","t":{"u":["f3f4","g5f5","f8c8","f5e4","c8c2","e4d5","c2g6"],"l":["55. f4+","55...Kf5","56. Qc8+","56...Ke4","57. Qc2+","57...Kd5","58. Qxg6"],"p":6},"m":[{"u":["h3h4"],"l":["55. h4+"]}],"pf":"5Q2/8/5pqk/7p/6p1/5PPP/6K1/8 b - - 1 54"},{"id":"heKt4#0","pz":"heKt4","r":892,"th":["crushing","discoveredAttack","kingsideAttack","master","middlegame","short"],"s":"b","fen":"r4rk1/p4ppp/4b3/3qp3/1P1b4/P2Q1B2/3B1PPP/2R2RK1 b - - 1 18","lm":"","ctx":"","t":{"u":["d4f2","f1f2","d5d3","f3a8","f8a8","c1e1","d3a3","e1e5","a3a1"],"l":["18...Bxf2+","19. Rxf2","19...Qxd3","20. Bxa8","20...Rxa8","21. Re1","21...Qxa3","22. Rxe5","22...Qa1+"],"p":2},"m":[{"u":["e5e4","f3e4","d5e5","e4a8","f8a8","d2c3","d4c3"],"l":["18...e4","19. Bxe4","19...Qe5","20. Bxa8","20...Rxa8","21. Bc3","21...Bxc3"]}],"pf":"r4rk1/p4ppp/4b3/3qp3/1P1b4/P2Q4/3BBPPP/2R2RK1 w - - 0 18"},{"id":"qg8ZK#0","pz":"qg8ZK","r":947,"th":["crushing","deflection","opening","short"],"s":"w","fen":"r2qkb1r/4pppp/p1pp4/3nP3/Q2P4/4Bb2/PP3PPP/RN3RK1 w kq - 0 13","lm":"","ctx":"","t":{"u":["a4c6","d8d7","c6a8","d7d8","a8a6"],"l":["13. Qxc6+","13...Qd7","14. Qxa8+","14...Qd8","15. Qxa6"],"p":4},"m":[{"u":["g2f3","d8d7"],"l":["13. gxf3","13...Qd7"]}],"pf":"r2qkb1r/4pppp/p1pp4/3nP3/Q2P2b1/4BN2/PP3PPP/RN3RK1 b kq - 5 12"},{"id":"26c9k#0","pz":"26c9k","r":1830,"th":["advantage","attraction","kingsideAttack","middlegame","sacrifice","veryLong"],"s":"b","fen":"r3r1k1/p5p1/1p1bNnp1/8/2Pq4/P7/4QPPP/R3RBK1 b - - 0 23","lm":"","ctx":"","t":{"u":["d6h2","g1h2","d4h4","h2g1","f6g4","e2g4","h4g4","e6c7","e8e1"],"l":["23...Bxh2+","24. Kxh2","24...Qh4+","25. Kg1","25...Ng4","26. Qxg4","26...Qxg4","27. Nc7","27...Rxe1"],"p":6},"m":[{"u":["d4h4","g2g3","h4h5","e2b2","d6c5","f1g2","a8c8","g2d5"],"l":["23...Qh4","24. g3","24...Qh5","25. Qb2","25...Bc5","26. Bg2","26...Rac8","27. Bd5"]}],"pf":"r3r1k1/p5p1/1p1bpnp1/6N1/2Pq4/P7/4QPPP/R3RBK1 w - - 2 23"}]};
 
 /* ------------------------------------------------------------------ chess rules */
 const FILES = "abcdefgh";
@@ -418,7 +429,7 @@ function slimCrux(c) {
   teacher.c = t && t.end && t.end.choices ? t.end.choices.map(ch => ch.san) : [];
   return {
     id: c.crux_id, pz: c.puzzle, r: c.rating, th: c.themes || [], s: (c.solver || "white")[0],
-    fen: c.fen, lm: c.last_move || "", ctx: (c.path && c.path.length ? c.path[c.path.length - 1] : ""),
+    fen: c.fen, lm: c.last_move || "", pf: (c.history || []).length >= 2 && c.history[c.history.length - 1] === c.fen ? c.history[c.history.length - 2] : "", ctx: (c.path && c.path.length ? c.path[c.path.length - 1] : ""),
     t: teacher, m: (c.mistakes || []).slice(0, 2).map(m => lineOf(m.line.slice(0, 8)))
   };
 }
@@ -874,7 +885,7 @@ function pieceSvg(t, white) {
 const pcClass = p => (isWhite(p) ? "w" : "b") + p.toLowerCase();
 const boardEl = document.getElementById("board");
 const ui = {
-  pos: null, flip: false, sel: -1, last: null, marks: {}, live: false, onMove: null, arrows: [],
+  pos: null, flip: false, sel: -1, last: null, marks: {}, live: false, onMove: null, arrows: [], token: 0,
   squares: [],
   build() {
     boardEl.innerHTML = "";
@@ -912,7 +923,19 @@ const ui = {
     }
     this.drawArrows();
   },
-  set(pos, last, flip) { this.pos = pos; this.last = last || null; if (flip !== undefined) this.flip = flip; this.sel = -1; this.marks = {}; this.arrows = []; this.render(); },
+  /* Slide a piece to its square, then show the position after the move. */
+  slide(m, after, last, done) {
+    const token = ++this.token;
+    const end = () => { if (this.token !== token) return; this.set(after, last); if (done) done(); };
+    const from = this.squares[this.cellOf(m.from)], to = this.squares[this.cellOf(m.to)];
+    const pc = from && from.querySelector(".pc");
+    if (!pc || matchMedia("(prefers-reduced-motion: reduce)").matches) { end(); return; }
+    const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+    pc.style.zIndex = 4; pc.style.transition = "transform .24s ease-in-out";
+    requestAnimationFrame(() => { pc.style.transform = `translate(${b.left - a.left}px, ${b.top - a.top}px)`; });
+    setTimeout(end, 260);
+  },
+  set(pos, last, flip) { this.token++; this.pos = pos; this.last = last || null; if (flip !== undefined) this.flip = flip; this.sel = -1; this.marks = {}; this.arrows = []; this.render(); },
   /* Arrows over the board (squares 0..63), drawn in board cells so they follow a flip. */
   drawArrows() {
     const svg = document.getElementById("arrows");
@@ -1040,8 +1063,8 @@ function updateCounts() {
   $("nDue").textContent = c.due; $("nNew").textContent = c.newLeft; $("nLearned").textContent = c.learned;
   $("session").textContent = app.sessionDone ? `This session: ${app.sessionOk} of ${app.sessionDone} solved` : "";
   $("keys").innerHTML = cards()
-    ? "<kbd>Space</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step · <kbd>P</kbd> progress"
-    : "<kbd>S</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step · <kbd>P</kbd> progress";
+    ? "<kbd>A</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step · <kbd>S</kbd> settings · <kbd>P</kbd> progress"
+    : "<kbd>A</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step · <kbd>S</kbd> settings · <kbd>P</kbd> progress";
 }
 function setMsg(cls, html) { const m = $("msg"); m.className = "msg" + (cls ? " " + cls : ""); m.innerHTML = html; }
 /* One step, one set of buttons: Show answer while solving; then Next, or the two flashcard verdicts. */
@@ -1050,7 +1073,7 @@ function setActions(stage) {
   $("btnNext").hidden = stage !== "after";
   $("btnHad").hidden = $("btnMissed").hidden = stage !== "judge";
 }
-function stopTimers() { clearTimeout(app.timer); clearTimeout(app.playTimer); app.timer = app.playTimer = null; $("btnNext").textContent = "Next puzzle"; }
+function stopTimers() { clearTimeout(app.timer); clearTimeout(app.playTimer); clearTimeout(app.introTimer); app.timer = app.playTimer = app.introTimer = null; $("btnNext").textContent = "Next puzzle"; }
 function nextPuzzle() {
   stopTimers();
   const nx = sched.next(Date.now(), app.ahead);
@@ -1071,6 +1094,7 @@ function showDone() {
   $("done").hidden = false;
   $("prompt").textContent = ""; $("prompt").className = "prompt";
   setMsg("", ""); $("lines").hidden = true;
+  $("fenRow").classList.add("off");
   setActions("none");
 }
 function startPuzzle(group, c) {
@@ -1079,16 +1103,38 @@ function startPuzzle(group, c) {
   const stateName = !s || s.status === "learning" ? "new" : s.status;
   app.cur = { group, c, idx: 0, last: lastPly(c), positions: positionsOf(c.fen, c.t.u), finished: false, ok: null, stateName };
   app.view = null;
-  const pos = parseFen(c.fen);
+  const pos = parseFen(c.fen), cur = app.cur;
   const lm = c.lm ? [sqIdx(c.lm.slice(0, 2)), sqIdx(c.lm.slice(2, 4))] : null;
   ui.onMove = onUserMove;
-  ui.live = !cards();
-  ui.set(pos, lm, c.s === "b");                       // always from the solver's side
+  const intro = opponentMove(c);
+  if (intro) {                                        // the opponent plays the move that sets up the crux
+    ui.live = false;
+    ui.set(intro.pos, null, c.s === "b");             // always from the solver's side
+    app.introTimer = setTimeout(() => {
+      if (app.cur !== cur || cur.finished) return;
+      ui.slide(intro.m, pos, [intro.m.from, intro.m.to], () => { if (app.cur === cur && !cur.finished) { ui.live = !cards(); ui.render(); } });
+    }, 500);
+  } else {
+    ui.live = !cards();
+    ui.set(pos, lm, c.s === "b");
+  }
   $("prompt").textContent = (pos.w ? "White" : "Black") + " to move";
   $("prompt").className = "prompt " + (pos.w ? "w" : "b");
   setMsg("", cards() ? "Solve it in your head, then show the answer." : "");
   $("lines").hidden = true; $("done").hidden = true;
+  $("fenRow").classList.add("off");
   setActions("solve");
+}
+/* The opponent's move into the crux: from the position before it (pf) to the crux position. */
+function opponentMove(c) {
+  if (!c.pf) return null;
+  try {
+    const before = parseFen(c.pf), want = parseFen(c.fen);
+    if (before.w === want.w) return null;
+    const key = p => p.b.map(x => x || ".").join("");
+    const m = legalMoves(before).find(x => key(makeMove(before, x)) === key(want));
+    return m ? { pos: before, m } : null;
+  } catch (e) { return null; }
 }
 function onUserMove(m) {
   const cur = app.cur;
@@ -1105,12 +1151,14 @@ function onUserMove(m) {
       if (app.cur !== cur || cur.finished) return;
       const reply = moveFromUci(ui.pos, cur.c.t.u[cur.idx]);
       if (!reply) return finish(true);
-      ui.set(makeMove(ui.pos, reply), [reply.from, reply.to]);
-      cur.idx++;
-      if (cur.idx > cur.last || cur.idx >= cur.c.t.u.length) return finish(true);
-      ui.live = true; ui.render();
-      setMsg("", "Correct. Keep going.");
-    }, 420);
+      ui.slide(reply, makeMove(ui.pos, reply), [reply.from, reply.to], () => {
+        if (app.cur !== cur || cur.finished) return;
+        cur.idx++;
+        if (cur.idx > cur.last || cur.idx >= cur.c.t.u.length) return finish(true);
+        ui.live = true; ui.render();
+        setMsg("", "Correct. Keep going.");
+      });
+    }, 300);
     return;
   }
   ui.live = false;
@@ -1128,6 +1176,8 @@ function finish(ok, tempt, played) {
   const cur = app.cur;
   if (!cur || cur.finished) return;
   cur.finished = true; ui.live = false;
+  clearTimeout(app.introTimer);
+  $("fenText").textContent = cur.c.fen; $("fenRow").classList.remove("off");
   if (cards()) {                                      // flashcards: show the answer, then you say how it went
     setMsg("", `<h3>The answer</h3><p>${endNote(cur)}Did you have it?</p>`);
     setActions("judge");
@@ -1282,7 +1332,8 @@ document.addEventListener("keydown", ev => {
   if (k === "ArrowLeft") { step(-1); ev.preventDefault(); return; }
   if (k === "Home") { step(-Infinity); ev.preventDefault(); return; }
   if (k === "End") { step(Infinity); ev.preventDefault(); return; }
-  if (lower === "s") showAnswer();
+  if (lower === "a") showAnswer();
+  else if (lower === "s") { ev.preventDefault(); openSettings(); }
   else if (lower === "y") judge(true);
   else if (lower === "n") judge(false);
   else if (lower === "p") openProgress();
@@ -1291,13 +1342,28 @@ document.addEventListener("keydown", ev => {
 /* ------------------------------------------------------------------ settings */
 const dlgS = $("dlgSettings");
 function closestSpacing(mod) { return ["60", "100", "160"].reduce((a, b) => (Math.abs(b - mod) < Math.abs(a - mod) ? b : a)); }
-$("btnSettings").addEventListener("click", () => {
+function openSettings() {
+  if (dlgS.open || $("dlgProgress").open) return;
   const s = app.state.settings;
   $("optMode").value = s.mode; $("optAuto").checked = s.auto;
   $("optNew").value = s.newPerDay; $("optRevMax").value = s.srs.reviewsPerDay; $("optLearnN").value = s.srs.learnN;
   $("optSpacing").value = closestSpacing(s.srs.mod);
   $("rowAuto").hidden = s.mode === "cards";
   dlgS.showModal();
+}
+$("btnSettings").addEventListener("click", openSettings);
+/* Copy the puzzle's FEN (after a puzzle), e.g. to analyse it elsewhere. */
+$("btnCopyFen").addEventListener("click", async () => {
+  const text = $("fenText").textContent, btn = $("btnCopyFen");
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; }
+  catch (e) {
+    const r = document.createRange(); r.selectNodeContents($("fenText"));
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    try { ok = document.execCommand("copy"); } catch (e2) { /* left selected for Ctrl+C */ }
+  }
+  btn.textContent = ok ? "Copied" : "Press Ctrl+C";
+  setTimeout(() => { btn.textContent = "Copy FEN"; }, 1500);
 });
 $("optMode").addEventListener("change", () => { $("rowAuto").hidden = $("optMode").value === "cards"; });
 $("btnResetAll").addEventListener("click", () => {
