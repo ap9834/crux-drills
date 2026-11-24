@@ -6,13 +6,13 @@
 <title>Crux Drills</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#000000">
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Crux Drills">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Cg fill="none" stroke="%233b8cff" stroke-linecap="round"%3E%3Ccircle cx="16" cy="16" r="10.5" stroke-width="4"/%3E%3Cpath d="M16 1.75v5.5M16 24.75v5.5M1.75 16h5.5M24.75 16h5.5" stroke-width="4"/%3E%3C/g%3E%3Crect x="11.5" y="11.5" width="9" height="9" rx="1.25" fill="%233b8cff"/%3E%3C/svg%3E">
 <style>
 /* A black room and a wooden board. Blue is what you can press; green and red only say how it went. */
 :root {
@@ -47,6 +47,7 @@ button, select, input { font: inherit; color: inherit; }
 .brand .logo { width: 26px; height: 26px; vertical-align: -5px; margin-right: 9px; }
 .counts { display: flex; gap: 16px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
 .counts b { font: 600 20px/1 var(--font-display); margin-right: 4px; }
+.counts i { font-style: normal; }
 .counts .due b { color: var(--accent); } .counts .new b { color: var(--warn); } .counts .learned b { color: var(--good); }
 .top .spacer { flex: 1; }
 .savestate { font-size: 13px; color: var(--muted); }
@@ -95,12 +96,19 @@ button, select, input { font: inherit; color: inherit; }
 .promo div { display: flex; gap: 6px; background: var(--panel); padding: 10px; border-radius: 8px; border: 1px solid var(--line); }
 .promo button { position: relative; width: 64px; height: 64px; border-radius: 6px; border: 1px solid var(--line); background: var(--light-sq); cursor: pointer; }
 
-.side { width: 360px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.side { width: 360px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .prompt { font: 700 34px/1 var(--font-display); text-transform: uppercase; letter-spacing: .01em; white-space: nowrap; }
 .prompt.w::before, .prompt.b::before { content: ""; display: inline-block; width: 18px; height: 18px; border-radius: 50%;
                                        margin-right: 12px; vertical-align: 3px; }
 .prompt.w::before { background: #fff; box-shadow: 0 0 0 1px #555; }
 .prompt.b::before { background: #111; box-shadow: 0 0 0 1px #777; }
+.prompt.v.good { color: var(--good); } .prompt.v.bad { color: var(--bad); }
+.ic { width: 18px; height: 18px; flex: none; }
+.mobonly { display: none; }
+.btn.ib { display: inline-flex; align-items: center; gap: 7px; }
+.btn .i-done { display: none; } .btn.copied .i-copy { display: none; } .btn.copied .i-done { display: inline-flex; color: var(--good); }
+.btn.good, .btn.bad { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.actions .btn.step { flex: none; padding: 9px 11px; display: inline-flex; align-items: center; }
 .msg { color: var(--muted); min-height: 1.45em; }
 .msg h3 { margin: 0 0 4px; font: 700 24px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; color: var(--ink); }
 .msg.good h3 { color: var(--good); } .msg.bad h3 { color: var(--bad); }
@@ -108,10 +116,6 @@ button, select, input { font: inherit; color: inherit; }
 .actions { display: flex; gap: 10px; }
 .actions .btn { flex: 1; padding: 11px 14px; }
 .lines { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
-.linehead { display: flex; align-items: center; justify-content: space-between; }
-.linehead b { font: 600 12px/1 var(--font-body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-.stepper { display: flex; gap: 6px; }
-.stepper .btn { padding: 2px 12px; font-size: 18px; line-height: 1.3; }
 .lineblock { font-family: var(--font-mono); font-size: 14px; line-height: 1.9; }
 .lineblock .tag { font: 600 12px/1 var(--font-body); text-transform: uppercase; letter-spacing: .06em; margin-right: 6px; }
 .lineblock .tag.sol { color: var(--good); } .lineblock .tag.tempt { color: var(--bad); }
@@ -167,38 +171,73 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 .progdetail p { margin: 0 0 4px; }
 .progdetail .row { justify-content: flex-start; margin-top: 8px; }
 .hint { color: var(--muted); font-size: 13px; }
-@media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
+.tour { position: fixed; inset: 0; z-index: 100; }
+.tour-spot { position: fixed; border-radius: 8px; box-shadow: 0 0 0 200vmax rgba(0,0,0,.72); outline: 2px solid var(--accent);
+             transition: left .2s ease, top .2s ease, width .2s ease, height .2s ease; pointer-events: none; }
+.tour-spot.none { left: 50%; top: 50%; width: 0; height: 0; outline: none; }
+.tour-card { position: fixed; width: min(340px, calc(100vw - 24px)); background: var(--panel); border: 1px solid var(--line);
+             border-radius: 12px; padding: 16px 18px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+.tour-step { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.tour-card h3 { margin: 4px 0 6px; font: 700 22px/1.1 var(--font-display); text-transform: uppercase; }
+.tour-card p { margin: 0 0 14px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.tour-card p b { color: var(--ink); font-weight: 600; }
+.tour-row { display: flex; gap: 8px; align-items: center; } .tour-row .grow { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .switch::after, .tour-spot { transition: none; } }
 @media (max-width: 899px) {
-  .main { padding: 12px 12px 24px; gap: 16px; }
-  .side { width: var(--bs); }
-  .prompt { font-size: 26px; }
+  :root { --bs: min(560px, calc(100vw - 16px)); }
+  .main { padding: 8px 8px 20px; gap: 10px; }
+  .boardcol { gap: 6px; }
+  .side { width: var(--bs); gap: 8px; }
+  .prompt { font-size: 22px; }
+  .prompt.w::before, .prompt.b::before { width: 14px; height: 14px; margin-right: 9px; vertical-align: 2px; }
+  .msg { font-size: 14px; line-height: 1.35; min-height: 0; }
+  .actions { gap: 6px; }
+  .actions .btn { padding: 9px 10px; font-size: 15px; white-space: nowrap; }
+  .actions .btn.step { padding: 8px 7px; }
+  .actions .btn.good, .actions .btn.bad { padding: 9px 8px; gap: 5px; }
+  .lines { padding-top: 8px; gap: 2px; }
+  .lineblock { font-size: 13px; line-height: 1.75; }
+  .about { font-size: 12px; }
+  .fenrow { display: none; }                         /* phones: the copy button sits beside Next instead */
+  .actions .mobonly:not([hidden]) { display: inline-flex; }
+  .lineblock.tempt:not(.played) { display: none; }  /* phones: only the tempting line you fell for */
   .keys { display: none; }
+  .done h2 { font-size: 24px; }
 }
 @media (max-width: 640px) {
-  .top { padding: 10px 12px; gap: 8px 12px; }
-  .brand { font-size: 20px; }
-  .counts { order: 3; width: 100%; justify-content: space-between; }
+  .top { flex-wrap: nowrap; padding: 8px 10px; gap: 8px; }
+  .top .spacer { min-width: 0; }
+  .brandtext { display: none; }
+  .brand .logo { width: 28px; height: 28px; margin-right: 0; vertical-align: middle; }
+  .counts { gap: 9px; font-size: 12px; white-space: nowrap; }
+  .counts b { font-size: 17px; margin-right: 3px; }
   .savestate { display: none; }
-  .top .btn { padding: 6px 10px; font-size: 14px; }
-  .dlg .row.nowrap { flex-wrap: wrap; justify-content: flex-start; }
-  .opt:has(.nowrap) { flex-direction: column; align-items: flex-start; }
+  .top .btn.ib { padding: 7px; }
+  .top .lbl { display: none; }
+  .notice { margin: 8px 8px 0; font-size: 13px; padding: 6px 10px; }
+}
+@media (max-width: 369px) {
+  .top .btn.ib { padding: 6px; }
+  .counts i { display: none; }                      /* the narrowest phones: coloured numbers, words in the tooltip */
+  .counts { gap: 12px; }
 }
 </style>
 </head>
 <body>
 <header class="top">
-  <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><g fill="none" stroke="#3b8cff" stroke-linecap="round"><circle cx="16" cy="16" r="10.5" stroke-width="4"/><path d="M16 1.75v5.5M16 24.75v5.5M1.75 16h5.5M24.75 16h5.5" stroke-width="4"/></g><rect x="11.5" y="11.5" width="9" height="9" rx="1.25" fill="#3b8cff"/></svg>Crux <span>Drills</span></div>
+  <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><g fill="none" stroke="#3b8cff" stroke-linecap="round"><circle cx="16" cy="16" r="10.5" stroke-width="4"/><path d="M16 1.75v5.5M16 24.75v5.5M1.75 16h5.5M24.75 16h5.5" stroke-width="4"/></g><rect x="11.5" y="11.5" width="9" height="9" rx="1.25" fill="#3b8cff"/></svg><span class="brandtext">Crux <span>Drills</span></span></div>
   <div class="counts" aria-label="Today">
-    <span class="due" title="Groups to review now"><b id="nDue">0</b>due</span>
-    <span class="new" title="New groups you can still start today"><b id="nNew">0</b>new</span>
-    <span class="learned" title="Groups you've learned"><b id="nLearned">0</b>learned</span>
+    <span class="due" title="Groups to review now"><b id="nDue">0</b><i>due</i></span>
+    <span class="new" title="New groups you can still start today"><b id="nNew">0</b><i>new</i></span>
+    <span class="learned" title="Groups you've learned"><b id="nLearned">0</b><i>learned</i></span>
   </div>
   <div class="spacer"></div>
   <span class="savestate" id="saveState"></span>
-  <button class="btn" id="btnSave" type="button" hidden>Save progress</button>
-  <button class="btn" id="btnInstall" type="button" hidden>Install app</button>
-  <button class="btn" id="btnProgress" type="button" title="Your progress across all groups (P)">Progress</button>
-  <button class="btn" id="btnSettings" type="button" title="S">Settings</button>
+  <button class="btn ib" id="btnSave" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></g></svg><span class="lbl" id="lblSave">Save progress</span></button>
+  <button class="btn ib" id="btnInstall" type="button" title="Install app" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></g></svg><span class="lbl">Install app</span></button>
+  <button class="btn ib" id="btnProgress" type="button" title="Progress (P)" aria-label="Progress"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></g></svg><span class="lbl">Progress</span></button>
+  <button class="btn ib" id="btnSettings" type="button" title="Settings (S)" aria-label="Settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></g></svg><span class="lbl">Settings</span></button>
+  <button class="btn ib" id="btnTour" type="button" title="Tour" aria-label="Tour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.4c-.55.22-.9.75-.9 1.35v.55"/><path d="M12 17h.01" stroke-width="2.6"/></g></svg><span class="lbl">Tour</span></button>
 </header>
 <div class="notice" id="notice" hidden></div>
 <main class="main">
@@ -208,16 +247,19 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
       <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
       <div class="promo" id="promo" hidden><div id="promoChoices"></div></div>
     </div>
-    <div class="fenrow off" id="fenRow"><code id="fenText" title="The puzzle position"></code><button class="btn" id="btnCopyFen" type="button">Copy FEN</button></div>
+    <div class="fenrow off" id="fenRow"><code id="fenText" title="The puzzle position"></code><button class="btn ib" id="btnCopyFen" type="button" title="Copy FEN" aria-label="Copy FEN"><span class="i-copy"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/></g></svg></span><span class="i-done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></g></svg></span><span class="lbl" id="lblCopy">Copy FEN</span></button></div>
   </div>
   <section class="side" aria-live="polite">
     <div class="prompt" id="prompt">Loading…</div>
     <div class="msg" id="msg"></div>
     <div class="actions">
+      <button class="btn step" id="btnBack" type="button" title="Back (←)" aria-label="Back" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6l-6 6 6 6"/></g></svg></button>
+      <button class="btn step" id="btnFwd" type="button" title="Forward (→)" aria-label="Forward" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6l6 6-6 6"/></g></svg></button>
+      <button class="btn step mobonly" id="btnCopyFenM" type="button" title="Copy FEN" aria-label="Copy FEN" hidden><span class="i-copy"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/></g></svg></span><span class="i-done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></g></svg></span></button>
       <button class="btn" id="btnShow" type="button" title="A">Show answer</button>
       <button class="btn primary" id="btnNext" type="button" title="Enter" hidden>Next puzzle</button>
-      <button class="btn bad" id="btnMissed" type="button" title="N" hidden>I missed it</button>
-      <button class="btn good" id="btnHad" type="button" title="Y" hidden>I had it</button>
+      <button class="btn bad" id="btnMissed" type="button" title="N" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></g></svg>Missed it</button>
+      <button class="btn good" id="btnHad" type="button" title="Y" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></g></svg>Had it</button>
     </div>
     <div class="lines" id="lines" hidden></div>
     <div class="done" id="done" hidden>
@@ -228,6 +270,17 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
     <div class="foot"><span id="session"></span><span class="keys" id="keys"></span></div>
   </section>
 </main>
+
+<div class="tour" id="tour" hidden>
+  <div class="tour-spot" id="tourSpot"></div>
+  <div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <div class="tour-step" id="tourStep"></div>
+    <h3 id="tourTitle"></h3>
+    <p id="tourText"></p>
+    <div class="tour-row"><button class="btn" type="button" id="tourSkip">Skip</button><span class="grow"></span>
+      <button class="btn" type="button" id="tourBack">Back</button><button class="btn primary" type="button" id="tourNext">Next</button></div>
+  </div>
+</div>
 
 <dialog id="dlgSettings">
   <form class="dlg" method="dialog">
@@ -627,11 +680,12 @@ const store = {
     renderSaveState();
   }
 };
+function setSaveLabel(t) { $("lblSave").textContent = t; $("btnSave").title = t; }
 function renderSaveState() {
   const el = $("saveState"), btn = $("btnSave");
   if (store.hosted) { el.className = "savestate ok"; el.textContent = "Progress saved in this browser"; btn.hidden = true; return; }
   if (store.server) {
-    btn.hidden = !store.serverDown; btn.textContent = "Save progress";
+    btn.hidden = !store.serverDown; setSaveLabel("Save progress");
     el.className = "savestate " + (store.serverDown ? "warn" : "ok");
     el.textContent = store.serverDown ? "Launcher closed: saved in this browser only" : "Autosaving to progress.js";
     return;
@@ -640,11 +694,11 @@ function renderSaveState() {
   el.className = "savestate warn";
   if (store.canWrite) {
     el.textContent = store.needsPermission ? "Saving to the folder is paused" : "Progress saved in this browser only";
-    btn.hidden = false; btn.textContent = store.needsPermission ? "Resume saving" : "Save to folder";
+    btn.hidden = false; setSaveLabel(store.needsPermission ? "Resume saving" : "Save to folder");
   } else {
     el.textContent = store.unsaved ? `${store.unsaved} change${store.unsaved === 1 ? "" : "s"} not in progress.js yet` : "progress.js is up to date";
     if (!store.unsaved) el.className = "savestate ok";
-    btn.hidden = false; btn.textContent = "Save progress";
+    btn.hidden = false; setSaveLabel("Save progress");
   }
 }
 function openSaveDialog() {
@@ -1068,12 +1122,17 @@ function updateCounts() {
     ? "<span><kbd>A</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings</span>"
     : "<span><kbd>A</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings</span>";
 }
+function setVerdict(cls, title, text) {
+  $("prompt").textContent = title; $("prompt").className = "prompt v " + cls;
+  setMsg("", text);
+}
 function setMsg(cls, html) { const m = $("msg"); m.className = "msg" + (cls ? " " + cls : ""); m.innerHTML = html; }
 /* One step, one set of buttons: Show answer while solving; then Next, or the two flashcard verdicts. */
 function setActions(stage) {
   $("btnShow").hidden = stage !== "solve";
   $("btnNext").hidden = stage !== "after";
   $("btnHad").hidden = $("btnMissed").hidden = stage !== "judge";
+  $("btnBack").hidden = $("btnFwd").hidden = $("btnCopyFenM").hidden = stage !== "after" && stage !== "judge";
 }
 function stopTimers() { clearTimeout(app.timer); clearTimeout(app.playTimer); clearTimeout(app.introTimer); app.timer = app.playTimer = app.introTimer = null; $("btnNext").textContent = "Next puzzle"; }
 function nextPuzzle() {
@@ -1122,7 +1181,7 @@ function startPuzzle(group, c) {
   }
   $("prompt").textContent = (pos.w ? "White" : "Black") + " to move";
   $("prompt").className = "prompt " + (pos.w ? "w" : "b");
-  setMsg("", cards() ? "Solve it in your head, then show the answer." : "");
+  setMsg("", cards() ? "Solve it in your head." : "");
   $("lines").hidden = true; $("done").hidden = true;
   $("fenRow").classList.add("off");
   setActions("solve");
@@ -1158,7 +1217,7 @@ function onUserMove(m) {
         cur.idx++;
         if (cur.idx > cur.last || cur.idx >= cur.c.t.u.length) return finish(true);
         ui.live = true; ui.render();
-        setMsg("", "Correct. Keep going.");
+        setMsg("", "Correct, keep going.");
       });
     }, 300);
     return;
@@ -1167,12 +1226,12 @@ function onUserMove(m) {
   ui.set(after, [m.from, m.to]);
   ui.marks[m.to] = "no"; ui.render();
   const tempt = cur.idx === 0 ? cur.c.m.find(x => x.u[0] === u) : null;
-  cur.played = { from: m.from, to: m.to, at: cur.idx };
+  cur.played = { from: m.from, to: m.to, at: cur.idx, u };
   finish(false, tempt, moveLabel(before, m));
 }
 /* Where the puzzle stops: a note when more than one move wins from there. */
 function endNote(cur) {
-  return cur.c.t.c && cur.c.t.c.length > 1 ? `From there ${cur.c.t.c.map(escapeHtml).join(" and ")} both win, so the puzzle ends. ` : "";
+  return cur.c.t.c && cur.c.t.c.length > 1 ? `Then ${cur.c.t.c.map(escapeHtml).join(" and ")} both win: puzzle over. ` : "";
 }
 function finish(ok, tempt, played) {
   const cur = app.cur;
@@ -1181,7 +1240,7 @@ function finish(ok, tempt, played) {
   clearTimeout(app.introTimer);
   $("fenText").textContent = cur.c.fen; $("fenRow").classList.remove("off");
   if (cards()) {                                      // flashcards: show the answer, then you say how it went
-    setMsg("", `<h3>The answer</h3><p>${endNote(cur)}Did you have it?</p>`);
+    setVerdict("", "The answer", `${endNote(cur)}Did you have it?`);
     setActions("judge");
     showLines(cur, 0);
     autoplay(cur);
@@ -1189,10 +1248,10 @@ function finish(ok, tempt, played) {
   }
   grade(ok);
   const s = sched.gs(cur.group.sig);
-  if (ok) setMsg("good", `<h3>Solved</h3><p>${endNote(cur)}${nextText(s)}</p>`);
-  else if (tempt) setMsg("bad", `<h3>The tempting move</h3><p>${escapeHtml(played)} is what most players try here. Its refutation is below. ${nextText(s)}</p>`);
-  else if (played) setMsg("bad", `<h3>Not this one</h3><p>${escapeHtml(played)} misses it. ${nextText(s)}</p>`);
-  else setMsg("bad", `<h3>The answer</h3><p>${endNote(cur)}${nextText(s)}</p>`);
+  if (ok) setVerdict("good", "Solved", `${endNote(cur)}${nextText(s)}`);
+  else if (tempt) setVerdict("bad", "Tempting, but no", `${escapeHtml(played)} is the usual try; its refutation is below. ${nextText(s)}`);
+  else if (played) setVerdict("bad", "Not this one", `${escapeHtml(played)} misses it. ${nextText(s)}`);
+  else setVerdict("bad", "The answer", `${endNote(cur)}${nextText(s)}`);
   setActions("after");
   showLines(cur, ok ? cur.last + 1 : 0);
   if (!ok) autoplay(cur);
@@ -1240,18 +1299,14 @@ function whenText(t) {
 }
 function nextText(s) {
   if (!s) return "";
-  if (s.status === "review") return `This group comes back ${whenText(s.due)}.`;
-  if (s.status === "relearn") return `This group comes back ${whenText(s.due)} with another of its puzzles.`;
-  return `Another puzzle of this group comes up ${whenText(s.due)}.`;
+  return `Group back ${whenText(s.due)}.`;
 }
 function showLines(cur, upto) {
   const c = cur.c, box = $("lines");
   const sol = cur.positions;
   const show = Math.min(sol.length - 1, Math.max(cur.last + 3, 4));
   cur.showN = show;
-  let html = `<div class="linehead"><b>Solution</b><span class="stepper"><button class="btn" type="button" data-step="-1" title="Back (←)" aria-label="Back">‹</button>`
-           + `<button class="btn" type="button" data-step="1" title="Forward (→)" aria-label="Forward">›</button></span></div>`;
-  html += `<div class="lineblock"><span class="mv" data-line="t" data-i="0">start</span> `;
+  let html = `<div class="lineblock"><span class="tag sol">Solution</span><span class="mv" data-line="t" data-i="0">start</span> `;
   for (let i = 1; i <= show; i++) {
     html += `<span class="mv" data-line="t" data-i="${i}">${escapeHtml(sol[i].label)}</span> `;
     if (i === c.t.x) html += `<span class="endmark" title="The puzzle ends here: more than one move wins">end</span> `;
@@ -1261,7 +1316,8 @@ function showLines(cur, upto) {
     const ps = positionsOf(c.fen, m.u.slice(0, 6));
     cur["m" + k] = ps;
     if (ps.length <= 2) return;
-    html += `<div class="lineblock"><span class="tag tempt">Tempting</span><span class="mv" data-line="m${k}" data-i="0">start</span> `;
+    const mine = cur.played && cur.played.at === 0 && cur.played.u === m.u[0];
+    html += `<div class="lineblock tempt${mine ? " played" : ""}"><span class="tag tempt">Tempting</span><span class="mv" data-line="m${k}" data-i="0">start</span> `;
     for (let i = 1; i < ps.length; i++) html += `<span class="mv" data-line="m${k}" data-i="${i}">${escapeHtml(ps[i].label)}</span> `;
     html += `</div>`;
   });
@@ -1309,8 +1365,6 @@ function step(delta) {
   viewAt(app.view.line, i);
 }
 $("lines").addEventListener("click", ev => {
-  const st = ev.target.closest("[data-step]");
-  if (st) { step(+st.dataset.step); return; }
   const el = ev.target.closest(".mv");
   if (el) { stopTimers(); viewAt(el.dataset.line, +el.dataset.i); }
 });
@@ -1318,6 +1372,8 @@ function escapeHtml(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp
 function showAnswer() { if (app.cur && !app.cur.finished) finish(false); }
 
 $("btnShow").addEventListener("click", showAnswer);
+$("btnBack").addEventListener("click", () => step(-1));
+$("btnFwd").addEventListener("click", () => step(1));
 $("btnNext").addEventListener("click", () => nextPuzzle());
 $("btnHad").addEventListener("click", () => judge(true));
 $("btnMissed").addEventListener("click", () => judge(false));
@@ -1355,8 +1411,8 @@ function openSettings() {
 }
 $("btnSettings").addEventListener("click", openSettings);
 /* Copy the puzzle's FEN (after a puzzle), e.g. to analyse it elsewhere. */
-$("btnCopyFen").addEventListener("click", async () => {
-  const text = $("fenText").textContent, btn = $("btnCopyFen");
+async function copyFen(btn) {
+  const text = $("fenText").textContent, lbl = $("lblCopy");
   let ok = false;
   try { await navigator.clipboard.writeText(text); ok = true; }
   catch (e) {
@@ -1364,9 +1420,11 @@ $("btnCopyFen").addEventListener("click", async () => {
     const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
     try { ok = document.execCommand("copy"); } catch (e2) { /* left selected for Ctrl+C */ }
   }
-  btn.textContent = ok ? "Copied" : "Press Ctrl+C";
-  setTimeout(() => { btn.textContent = "Copy FEN"; }, 1500);
-});
+  lbl.textContent = ok ? "Copied" : "Press Ctrl+C"; btn.classList.toggle("copied", ok);
+  setTimeout(() => { lbl.textContent = "Copy FEN"; btn.classList.remove("copied"); }, 1500);
+}
+$("btnCopyFen").addEventListener("click", () => copyFen($("btnCopyFen")));
+$("btnCopyFenM").addEventListener("click", () => copyFen($("btnCopyFenM")));
 $("optMode").addEventListener("change", () => { $("rowAuto").hidden = $("optMode").value === "cards"; });
 $("btnResetAll").addEventListener("click", () => {
   if (!confirm("Forget all your progress here? Your settings stay. This can't be undone (unless you exported your progress).")) return;
@@ -1568,6 +1626,96 @@ $("btnProgress").addEventListener("click", () => openProgress());
 $("progSort").addEventListener("change", renderProgress);
 $("btnProgClose").addEventListener("click", () => $("dlgProgress").close());
 
+/* ------------------------------------------------------------------ tour */
+/* A spotlight walk through the page: opens by itself on the first visit, and from the Tour button after. */
+const TOUR_KEY = PAGE_KEY + "tourDone";
+const tour = {
+  open: false, i: 0,
+  steps: [
+    { title: "Welcome to Crux Drills", text: () => "Each puzzle here is the <b>crux</b> of a lichess puzzle: the moment where one move wins. "
+        + "Puzzles that teach the same idea form a <b>group</b>. Learn a group, and it comes back for review at growing intervals." },
+    { target: ".boardwrap", title: "Find the move", text: () => cards()
+        ? "Your opponent moves first. Then solve it in your head, show the answer, and say whether you had it."
+        : "Your opponent moves first. Then play the winning move: drag or tap a piece. Get it right and they reply, until the puzzle is won." },
+    { target: ".actions", title: "Stuck?", text: () => "<b>Show answer</b> (A) counts as a miss. After each puzzle, step through the solution "
+        + "with ‹ › or the arrow keys, copy the position's FEN, and go on to the next puzzle." },
+    { target: ".counts", title: "Today", text: () => "<b>Due</b>: groups to review now. <b>New</b>: groups you can still start today. "
+        + "<b>Learned</b>: groups you know." },
+    { target: "#btnProgress", title: "Progress", text: () => "Every group as a tile, coloured by how well you know it. "
+        + "Tap one to practise it, suspend it or start it over. Shortcut: P." },
+    { target: "#btnSettings", title: "Settings", text: () => "Play the moves or use flashcards, go to the next puzzle automatically, "
+        + "set new groups per day and review spacing, and back up your progress. Shortcut: S." },
+    { target: "#btnTour", title: "That's it", text: () => "Your progress saves by itself. Take this tour again any time from here." }
+  ],
+  seen() { return !!lsGet(TOUR_KEY); },
+  start() {
+    if (this.open || document.querySelector("dialog[open]")) return;
+    this.open = true; this.i = 0;
+    $("tour").hidden = false;
+    this.show(0);
+  },
+  close() {
+    if (!this.open) return;
+    this.open = false;
+    $("tour").hidden = true;
+    lsSet(TOUR_KEY, true);
+    $("btnTour").focus({ preventScroll: true });
+  },
+  show(i) {
+    this.i = i;
+    const st = this.steps[i], last = i === this.steps.length - 1;
+    $("tourStep").textContent = `${i + 1} of ${this.steps.length}`;
+    $("tourTitle").textContent = st.title;
+    $("tourText").innerHTML = st.text();
+    $("tourBack").hidden = i === 0;
+    $("tourSkip").hidden = last;
+    $("tourNext").textContent = last ? "Done" : i === 0 ? "Show me" : "Next";
+    const el = this.target();
+    if (el) { const r = el.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) el.scrollIntoView({ block: "nearest" }); }
+    this.place();
+    $("tourNext").focus({ preventScroll: true });
+  },
+  target() { const sel = this.steps[this.i].target, el = sel && document.querySelector(sel); return el && el.offsetParent ? el : null; },
+  /* Spotlight the target, and put the card below it, above it, beside it, or (no room) at the bottom of the screen. */
+  place() {
+    if (!this.open) return;
+    const card = $("tourCard"), spot = $("tourSpot"), el = this.target();
+    const vw = innerWidth, vh = innerHeight, pad = 6, gap = 12, m = 12;
+    const cw = card.offsetWidth, ch = card.offsetHeight;
+    if (!el) {
+      spot.className = "tour-spot none"; spot.removeAttribute("style");
+      card.style.left = Math.max(m, (vw - cw) / 2) + "px"; card.style.top = Math.max(m, (vh - ch) / 2) + "px";
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    spot.className = "tour-spot";
+    Object.assign(spot.style, { left: r.left - pad + "px", top: r.top - pad + "px", width: r.width + 2 * pad + "px", height: r.height + 2 * pad + "px" });
+    let left = r.left + r.width / 2 - cw / 2, top;
+    if (vh - r.bottom - pad - gap >= ch + m) top = r.bottom + pad + gap;
+    else if (r.top - pad - gap >= ch + m) top = r.top - pad - gap - ch;
+    else if (vw - r.right - pad - gap >= cw + m) { left = r.right + pad + gap; top = Math.min(Math.max(m, r.top), vh - ch - m); }
+    else top = vh - ch - m;
+    card.style.left = Math.min(Math.max(m, left), vw - cw - m) + "px";
+    card.style.top = Math.max(m, top) + "px";
+  },
+  /* While the tour is open, the page's own shortcuts are off. Enter and Space press the focused button. */
+  key(ev) {
+    if (!this.open) return false;
+    const k = ev.key;
+    if (k === "Escape") { ev.preventDefault(); this.close(); }
+    else if (k === "ArrowRight") { ev.preventDefault(); $("tourNext").click(); }
+    else if (k === "ArrowLeft") { ev.preventDefault(); if (this.i > 0) this.show(this.i - 1); }
+    else if (k !== "Tab" && k !== "Enter" && k !== " ") ev.preventDefault();
+    return true;
+  }
+};
+$("btnTour").addEventListener("click", () => tour.start());
+$("tourNext").addEventListener("click", () => (tour.i < tour.steps.length - 1 ? tour.show(tour.i + 1) : tour.close()));
+$("tourBack").addEventListener("click", () => tour.show(tour.i - 1));
+$("tourSkip").addEventListener("click", () => tour.close());
+window.addEventListener("resize", () => tour.place());
+document.addEventListener("keydown", ev => { if (tour.key(ev)) ev.stopImmediatePropagation(); }, true);
+
 /* ------------------------------------------------------------------ start */
 function newer(a, b) { if (!a) return b; if (!b) return a; return (a.saved || 0) >= (b.saved || 0) ? a : b; }
 async function start() {
@@ -1589,6 +1737,7 @@ async function start() {
   renderSaveState();
   pwa.start();
   nextPuzzle();
+  if (!tour.seen()) setTimeout(() => tour.start(), 1100);   // first visit: after the opening move has played
 }
 start();
 </script>
