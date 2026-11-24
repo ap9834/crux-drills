@@ -125,6 +125,8 @@ button, select, input { font: inherit; color: inherit; }
 .done h2 { margin: 0 0 6px; font: 700 30px/1 var(--font-display); text-transform: uppercase; }
 .done p { margin: 0 0 12px; color: var(--muted); }
 .foot { color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.keys { display: flex; flex-direction: column; gap: 6px; }
+.keys span { white-space: nowrap; }
 kbd { font: 600 11px/1 var(--font-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; color: var(--ink); }
 
 dialog { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(500px, calc(100vw - 32px)); }
@@ -1063,8 +1065,8 @@ function updateCounts() {
   $("nDue").textContent = c.due; $("nNew").textContent = c.newLeft; $("nLearned").textContent = c.learned;
   $("session").textContent = app.sessionDone ? `This session: ${app.sessionOk} of ${app.sessionDone} solved` : "";
   $("keys").innerHTML = cards()
-    ? "<kbd>A</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step · <kbd>S</kbd> settings · <kbd>P</kbd> progress"
-    : "<kbd>A</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step · <kbd>S</kbd> settings · <kbd>P</kbd> progress";
+    ? "<span><kbd>A</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings</span>"
+    : "<span><kbd>A</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings</span>";
 }
 function setMsg(cls, html) { const m = $("msg"); m.className = "msg" + (cls ? " " + cls : ""); m.innerHTML = html; }
 /* One step, one set of buttons: Show answer while solving; then Next, or the two flashcard verdicts. */
