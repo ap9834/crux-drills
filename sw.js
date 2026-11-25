@@ -1,5 +1,5 @@
-// Crux Drills offline support (written by publish_site.py). Version: d788fbc1c997
-const CACHE = "crux-drills-d788fbc1c997";
+// Crux Drills offline support (written by publish_site.py). Version: be22d0d81937
+const CACHE = "crux-drills-be22d0d81937";
 const FILES = ["./", "index.html", "deck.js", "manifest.webmanifest", "favicon.ico", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", ev => {
   ev.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
