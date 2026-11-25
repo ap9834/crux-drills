@@ -1,12 +1,14 @@
-// Crux Drills offline support (written by publish_site.py). Version: 1ad156a1639a
-const CACHE = "crux-drills-1ad156a1639a";
+// Crux Drills offline support (written by publish_site.py). Version: bc0fdc5826b8
+const CACHE = "crux-drills-bc0fdc5826b8";
+const ENGINE_CACHE = "crux-engine-19.0.1";   // the engine: fetched on first use, then kept (offline too)
 const FILES = ["./", "index.html", "deck.js", "manifest.webmanifest", "favicon.ico", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", ev => {
   ev.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", ev => {
   ev.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k.startsWith("crux-drills-") && k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => (k.startsWith("crux-drills-") && k !== CACHE)
+                                            || (k.startsWith("crux-engine-") && k !== ENGINE_CACHE)).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", ev => {
@@ -14,6 +16,16 @@ self.addEventListener("fetch", ev => {
   if (req.method !== "GET" || url.origin !== location.origin) return;
   const scope = new URL(self.registration.scope);
   const rel = url.pathname.startsWith(scope.pathname) ? url.pathname.slice(scope.pathname.length) : null;
+  if (rel !== null && rel.startsWith("engine/")) {
+    ev.respondWith(caches.open(ENGINE_CACHE).then(async c => {
+      const hit = await c.match(req);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok) c.put(req, res.clone());
+      return res;
+    }));
+    return;
+  }
   if (rel === null || !(rel === "" || FILES.includes(rel))) return;
   ev.respondWith((async () => {
     const cache = await caches.open(CACHE);

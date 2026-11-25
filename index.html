@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crux Drills</title>
+<script>window.CRUX_ENGINE = "engine/stockfish-19-lite-single.js";</script>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
@@ -92,6 +93,22 @@ button, select, input { font: inherit; color: inherit; }
 .pc.lifted { opacity: .25; }
 .arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 .arrows .good { fill: rgba(46, 204, 113, .8); } .arrows .bad { fill: rgba(255, 95, 87, .8); }
+.arrows .eng { fill: rgba(77, 159, 255, .8); } .arrows .eng2 { fill: rgba(77, 159, 255, .4); }
+.evalbar { position: absolute; top: 0; bottom: 0; left: -16px; width: 10px; border-radius: 3px; overflow: hidden; background: #2a2a2a; }
+.evalbar .evalfill { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: #f1f1f1; transition: height .35s ease; }
+.evalbar.flip .evalfill { bottom: auto; top: 0; }
+.engine { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.enghead { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.enghead label { font-weight: 600; cursor: pointer; }
+.enghead .ev { font: 600 17px/1 var(--font-mono); min-width: 52px; }
+.enghead .depth { color: var(--muted); font-size: 12px; }
+.enghead .src { margin-left: auto; font-size: 11px; color: var(--muted); text-decoration: none; }
+.enghead .src:hover { color: var(--accent); }
+.pvs { display: flex; flex-direction: column; }
+.pv { font-family: var(--font-mono); font-size: 13px; line-height: 1.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pv .sc { display: inline-block; min-width: 50px; margin-right: 6px; padding: 0 4px; border-radius: 4px; background: #1a1d23; text-align: center; font-weight: 600; }
+.pvs .note { color: var(--muted); font-size: 13px; }
+.lineblock .tag.ana { color: var(--accent); }
 .promo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); z-index: 20; }
 .promo div { display: flex; gap: 6px; background: var(--panel); padding: 10px; border-radius: 8px; border: 1px solid var(--line); }
 .promo button { position: relative; width: 64px; height: 64px; border-radius: 6px; border: 1px solid var(--line); background: var(--light-sq); cursor: pointer; }
@@ -203,6 +220,8 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
   .lineblock.tempt:not(.played) { display: none; }  /* phones: only the tempting line you fell for */
   .keys { display: none; }
   .done h2 { font-size: 24px; }
+  .evalbar { left: 0; width: 6px; border-radius: 0; z-index: 6; }
+  .pv { font-size: 12px; }
 }
 @media (max-width: 640px) {
   .top { flex-wrap: nowrap; padding: 8px 10px; gap: 8px; }
@@ -245,6 +264,7 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
     <div class="boardwrap">
       <div class="board" id="board" aria-label="Chess board"></div>
       <svg class="arrows" id="arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
+      <div class="evalbar" id="evalBar" hidden title="Stockfish's evaluation"><div class="evalfill" id="evalFill"></div></div>
       <div class="promo" id="promo" hidden><div id="promoChoices"></div></div>
     </div>
     <div class="fenrow off" id="fenRow"><code id="fenText" title="The puzzle position"></code><button class="btn ib" id="btnCopyFen" type="button" title="Copy FEN" aria-label="Copy FEN"><span class="i-copy"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15H9"/></g></svg></span><span class="i-done"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></g></svg></span><span class="lbl" id="lblCopy">Copy FEN</span></button></div>
@@ -260,6 +280,16 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
       <button class="btn primary" id="btnNext" type="button" title="Enter" hidden>Next puzzle</button>
       <button class="btn bad" id="btnMissed" type="button" title="N" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></g></svg>Missed it</button>
       <button class="btn good" id="btnHad" type="button" title="Y" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></g></svg>Had it</button>
+    </div>
+    <div class="engine" id="engineBox" hidden>
+      <div class="enghead">
+        <input class="switch" type="checkbox" id="optEngine" aria-label="Stockfish analysis">
+        <label for="optEngine">Stockfish</label>
+        <span class="ev" id="engEval"></span><span class="depth" id="engDepth"></span>
+        <a class="src" href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener"
+           title="Stockfish 19 in the browser, by stockfish.js (GNU GPL v3): its source code">GPL source</a>
+      </div>
+      <div class="pvs" id="engPvs"></div>
     </div>
     <div class="lines" id="lines" hidden></div>
     <div class="done" id="done" hidden>
@@ -469,6 +499,21 @@ function san(pos, m) {
   return s;
 }
 function moveLabel(pos, m) { return pos.w ? `${pos.fm}. ${san(pos, m)}` : `${pos.fm}...${san(pos, m)}`; }
+function toFen(pos) {
+  let s = "";
+  for (let r = 7; r >= 0; r--) {
+    let e = 0;
+    for (let f = 0; f < 8; f++) {
+      const p = pos.b[r * 8 + f];
+      if (!p) e++;
+      else { if (e) { s += e; e = 0; } s += p; }
+    }
+    if (e) s += e;
+    if (r) s += "/";
+  }
+  const ep = pos.ep >= 0 ? FILES[pos.ep & 7] + ((pos.ep >> 3) + 1) : "-";
+  return `${s} ${pos.w ? "w" : "b"} ${pos.cas || "-"} ${ep} ${pos.hm} ${pos.fm}`;
+}
 function isMate(pos) { return inCheck(pos) && legalMoves(pos).length === 0; }
 
 /* ------------------------------------------------------------------ deck */
@@ -560,7 +605,7 @@ const DEFAULT_SRS = {
   hard: 1.2                // growth for Hard
 };
 /* Settings you can change: how you solve, auto-next, and four schedule knobs. The rest of DEFAULT_SRS is fixed. */
-const DEFAULT_SETTINGS = { v: 2, mode: "play", auto: false, newPerDay: 20, srs: { ...DEFAULT_SRS } };
+const DEFAULT_SETTINGS = { v: 2, mode: "play", auto: false, engine: false, newPerDay: 20, srs: { ...DEFAULT_SRS } };
 function normalizeSettings(st) {
   const old = st.settings || {}, srs = old.srs || {};
   const pick = (k, d) => (typeof srs[k] === "number" && isFinite(srs[k]) ? srs[k] : d);
@@ -572,6 +617,7 @@ function normalizeSettings(st) {
     v: 2,
     mode: old.mode === "cards" ? "cards" : "play",
     auto: !!old.auto,
+    engine: !!old.engine,
     newPerDay,
     srs: { ...DEFAULT_SRS, reviewsPerDay: pick("reviewsPerDay", 0), learnN, mod: pick("mod", 100) }
   };
@@ -1017,7 +1063,7 @@ const ui = {
       const ux = dx / len, uy = dy / len, px = -uy, py = ux;
       const w = .09, hw = .24, hl = .36, start = .18, end = len - .08;
       const P = (t, o) => `${(x1 + ux * t + px * o).toFixed(3)},${(y1 + uy * t + py * o).toFixed(3)}`;
-      out += `<polygon class="${a.kind === "bad" ? "bad" : a.kind === "hint" ? "hintc" : "good"}" points="${[P(start, -w), P(end - hl, -w), P(end - hl, -hw), P(end, 0), P(end - hl, hw), P(end - hl, w), P(start, w)].join(" ")}"/>`;
+      out += `<polygon class="${["bad", "eng", "eng2"].includes(a.kind) ? a.kind : "good"}" points="${[P(start, -w), P(end - hl, -w), P(end - hl, -hw), P(end, 0), P(end - hl, hw), P(end - hl, w), P(start, w)].join(" ")}"/>`;
     }
     svg.innerHTML = out;
   },
@@ -1130,9 +1176,10 @@ function updateCounts() {
   const c = sched.counts();
   $("nDue").textContent = c.due; $("nNew").textContent = c.newLeft; $("nLearned").textContent = c.learned;
   $("session").textContent = app.sessionDone ? `This session: ${app.sessionOk} of ${app.sessionDone} solved` : "";
+  const engKey = engine.available() ? " · <kbd>E</kbd> Stockfish" : "";
   $("keys").innerHTML = cards()
-    ? "<span><kbd>A</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings</span>"
-    : "<span><kbd>A</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings</span>";
+    ? "<span><kbd>A</kbd> show answer · <kbd>Y</kbd> had it · <kbd>N</kbd> missed it · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings" + engKey + "</span>"
+    : "<span><kbd>A</kbd> show answer · <kbd>Enter</kbd> next · <kbd>←</kbd><kbd>→</kbd> step</span><span><kbd>P</kbd> progress · <kbd>S</kbd> settings" + engKey + "</span>";
 }
 function setVerdict(cls, title, text) {
   $("prompt").textContent = title; $("prompt").className = "prompt v " + cls;
@@ -1168,6 +1215,7 @@ function showDone() {
   $("prompt").textContent = ""; $("prompt").className = "prompt";
   setMsg("", ""); $("lines").hidden = true;
   $("fenRow").classList.add("off");
+  showEngineBox(false);
   setActions("none");
 }
 function startPuzzle(group, c) {
@@ -1178,7 +1226,7 @@ function startPuzzle(group, c) {
   app.view = null;
   const pos = parseFen(c.fen), cur = app.cur;
   const lm = c.lm ? [sqIdx(c.lm.slice(0, 2)), sqIdx(c.lm.slice(2, 4))] : null;
-  ui.onMove = onUserMove;
+  ui.onMove = boardMove;
   const intro = opponentMove(c);
   if (intro) {                                        // the opponent plays the move that sets up the crux
     ui.live = false;
@@ -1196,6 +1244,7 @@ function startPuzzle(group, c) {
   setMsg("", cards() ? "Solve it in your head." : "");
   $("lines").hidden = true; $("done").hidden = true;
   $("fenRow").classList.add("off");
+  showEngineBox(false);
   setActions("solve");
 }
 /* The opponent's move into the crux: from the position before it (pf) to the crux position. */
@@ -1208,6 +1257,33 @@ function opponentMove(c) {
     const m = legalMoves(before).find(x => key(makeMove(before, x)) === key(want));
     return m ? { pos: before, m } : null;
   } catch (e) { return null; }
+}
+function boardMove(m) {
+  const cur = app.cur;
+  if (!cur) return;
+  if (cur.finished) exploreMove(m);
+  else onUserMove(m);
+}
+/* After the puzzle: any move on the board starts (or extends) your own line from the position shown. */
+function exploreMove(m) {
+  const cur = app.cur, v = app.view;
+  if (!cur || !v) return;
+  stopTimers();
+  const ps = lineOf(v.line), here = ps[v.i], after = makeMove(here.pos, m), nxt = ps[v.i + 1];
+  if (nxt && nxt.pos.w === after.w && nxt.pos.b.join() === after.b.join()) { viewAt(v.line, v.i + 1); return; }
+  cur.x = ps.slice(0, v.i + 1).concat([{ pos: after, last: [m.from, m.to], label: moveLabel(here.pos, m) }]);
+  renderX();
+  viewAt("x", cur.x.length - 1);
+}
+/* Your own line, under the solution. */
+function renderX() {
+  const cur = app.cur, box = $("lines");
+  let el = $("xline");
+  if (!cur || !cur.x) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("div"); el.id = "xline"; el.className = "lineblock"; box.insertBefore(el, $("about")); }
+  let html = `<span class="tag ana">Analysis</span><span class="mv" data-line="x" data-i="0">start</span> `;
+  for (let i = 1; i < cur.x.length; i++) html += `<span class="mv" data-line="x" data-i="${i}">${escapeHtml(cur.x[i].label)}</span> `;
+  el.innerHTML = html;
 }
 function onUserMove(m) {
   const cur = app.cur;
@@ -1250,6 +1326,7 @@ function finish(ok, tempt, played) {
   if (!cur || cur.finished) return;
   cur.finished = true; ui.live = false;
   clearTimeout(app.introTimer);
+  showEngineBox(true);
   $("fenText").textContent = cur.c.fen; $("fenRow").classList.remove("off");
   if (cards()) {                                      // flashcards: show the answer, then you say how it went
     setVerdict("", "The answer", `${endNote(cur)}Did you have it?`);
@@ -1359,13 +1436,15 @@ function viewAt(line, i) {
   const ps = lineOf(line);
   if (!ps || !ps[i]) return;
   app.view = { line, i };
-  ui.live = false;
+  ui.live = true;                                     // after the puzzle, any move explores
   ui.set(ps[i].pos, ps[i].last);
-  // Arrows: the next move of this line; where you went wrong, also the move you played.
+  // Arrows: the next move of this line (with Stockfish on, its best moves instead); where you
+  // went wrong, also the move you played.
   const nxt = ps[i + 1];
-  if (nxt && nxt.last) ui.arrows.push({ from: nxt.last[0], to: nxt.last[1], kind: line === "t" ? "good" : "bad" });
+  if (nxt && nxt.last && !engine.on) ui.arrows.push({ from: nxt.last[0], to: nxt.last[1], kind: line === "t" ? "good" : line === "x" ? "eng" : "bad" });
   if (line === "t" && cur.played && cur.played.at === i) ui.arrows.push({ from: cur.played.from, to: cur.played.to, kind: "bad" });
   ui.render();
+  engine.analyse(ps[i].pos);
   document.querySelectorAll("#lines .mv").forEach(el => el.classList.toggle("cur", el.dataset.line === line && +el.dataset.i === i));
 }
 function step(delta) {
@@ -1391,7 +1470,9 @@ $("btnHad").addEventListener("click", () => judge(true));
 $("btnMissed").addEventListener("click", () => judge(false));
 $("btnExtra").addEventListener("click", () => { app.ahead = true; nextPuzzle(); });
 document.addEventListener("keydown", ev => {
-  if (ev.target.closest("input, select, textarea, dialog") || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (ev.target.id === "optEngine") { if (ev.key === " " || ev.key === "Enter") return; }   // the switch: shortcuts still work
+  else if (ev.target.closest("input, select, textarea, dialog")) return;
   const k = ev.key, lower = k.toLowerCase(), cur = app.cur;
   if (k === "Enter" || k === " ") {
     if (cur && !cur.finished && cards()) { ev.preventDefault(); showAnswer(); }
@@ -1407,6 +1488,7 @@ document.addEventListener("keydown", ev => {
   else if (lower === "y") judge(true);
   else if (lower === "n") judge(false);
   else if (lower === "p") openProgress();
+  else if (lower === "e" && !$("engineBox").hidden) setEngine(!engine.on);
 });
 
 /* ------------------------------------------------------------------ settings */
@@ -1638,6 +1720,165 @@ $("btnProgress").addEventListener("click", () => openProgress());
 $("progSort").addEventListener("change", renderProgress);
 $("btnProgClose").addEventListener("click", () => $("dlgProgress").close());
 
+/* ------------------------------------------------------------------ Stockfish */
+/* Analysis after a puzzle, as on lichess: Stockfish (stockfish.js, single-threaded) runs in a
+   worker on whatever position the board shows: an evaluation bar, its best lines, and arrows for
+   its best moves. Only on the website (publish_site.py puts the engine there and sets
+   window.CRUX_ENGINE); the worker starts the first time analysis is switched on. */
+const engine = {
+  worker: null, ready: false, on: false, failed: false, busy: false, stopping: false,
+  want: null, pos: null, lines: [], depth: 0, maxDepth: 22, multipv: 3, drawn: false,
+  available() {
+    return !!window.CRUX_ENGINE && location.protocol !== "file:" && typeof Worker === "function" && typeof WebAssembly === "object";
+  },
+  start() {
+    if (this.worker || this.failed) return;
+    this.multipv = matchMedia("(max-width: 640px)").matches ? 2 : 3;
+    try {
+      this.worker = new Worker(window.CRUX_ENGINE);
+    } catch (e) { this.fail(); return; }
+    this.worker.onmessage = ev => this.line(String(ev.data));
+    this.worker.onerror = () => this.fail();
+    this.send("uci");
+  },
+  fail() {
+    this.failed = true; this.busy = false; this.ready = false;
+    if (this.worker) { try { this.worker.terminate(); } catch (e) { /* gone already */ } }
+    this.worker = null;
+    renderEngine();
+  },
+  send(cmd) { if (this.worker) this.worker.postMessage(cmd); },
+  line(s) {
+    if (s === "uciok") { this.send(`setoption name MultiPV value ${this.multipv}`); this.send("isready"); }
+    else if (s === "readyok") { this.ready = true; this.go(); }
+    else if (s.startsWith("bestmove")) { this.busy = false; this.stopping = false; this.go(); renderEngine(); }
+    else if (s.startsWith("info") && this.busy && !this.stopping) this.info(s);
+  },
+  /* Analyse this position (the latest one asked for wins). */
+  analyse(pos) {
+    this.want = pos;
+    if (!this.on || !this.available()) return;
+    if (!this.worker) { this.start(); renderEngine(); return; }
+    if (this.busy) { if (!this.stopping) { this.stopping = true; this.send("stop"); } return; }
+    this.go();
+  },
+  go() {
+    if (!this.ready || this.busy || !this.on || !this.want) return;
+    const pos = this.want;
+    this.want = null; this.pos = pos; this.lines = []; this.depth = 0;
+    if (!legalMoves(pos).length) { renderEngine(); return; }      // mate or stalemate: nothing to search
+    this.busy = true;
+    this.send("position fen " + toFen(pos));
+    this.send("go depth " + this.maxDepth);
+    renderEngine();
+  },
+  /* Stop searching (the result is ignored). */
+  idle() {
+    this.want = null;
+    if (this.busy && !this.stopping) { this.stopping = true; this.send("stop"); }
+  },
+  info(s) {
+    const t = s.split(" ");
+    if (!t.includes("pv") || t.includes("lowerbound") || t.includes("upperbound")) return;
+    const at = k => { const i = t.indexOf(k); return i >= 0 ? t[i + 1] : null; };
+    const k = (+at("multipv") || 1) - 1, si = t.indexOf("score");
+    if (si < 0) return;
+    const val = +t[si + 2], white = this.pos.w;                    // scores are from the side to move
+    const sc = t[si + 1] === "mate" ? { mate: white ? val : -val } : { cp: white ? val : -val };
+    this.lines[k] = { depth: +at("depth"), sc, pv: t.slice(t.indexOf("pv") + 1) };
+    if (k === 0) this.depth = +at("depth");
+    if (!this.drawn) { this.drawn = true; requestAnimationFrame(() => { this.drawn = false; renderEngine(); }); }
+  }
+};
+function scoreText(sc) {
+  if (!sc) return "";
+  if (sc.mate !== undefined) return sc.mate === 0 ? "#" : (sc.mate > 0 ? "#" : "#-") + Math.abs(sc.mate);
+  const v = sc.cp / 100;
+  return (v > 0 ? "+" : "") + v.toFixed(1);
+}
+/* White's share of the bar, from the evaluation (lichess's winning-chances curve). */
+function whiteShare(sc) {
+  if (!sc) return 50;
+  if (sc.mate !== undefined) return sc.mate > 0 ? 100 : sc.mate < 0 ? 0 : 50;
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * sc.cp)) - 1);
+}
+function renderEngine() {
+  const box = $("engineBox"), bar = $("evalBar"), pvs = $("engPvs");
+  const showing = !box.hidden && engine.on;
+  bar.hidden = !showing;
+  bar.classList.toggle("flip", ui.flip);
+  ui.arrows = ui.arrows.filter(a => a.kind !== "eng" && a.kind !== "eng2");
+  if (!showing) { $("engEval").textContent = ""; $("engDepth").textContent = ""; pvs.innerHTML = ""; ui.drawArrows(); return; }
+  const pos = engine.pos, here = pos && pos === ui.pos;
+  if (engine.failed) {
+    $("engEval").textContent = ""; $("engDepth").textContent = "";
+    pvs.innerHTML = `<span class="note">Stockfish couldn't start in this browser.</span>`;
+    ui.drawArrows(); return;
+  }
+  if (!engine.ready || !here) {
+    $("engEval").textContent = "…"; $("engDepth").textContent = "";
+    pvs.innerHTML = `<span class="note">${engine.ready ? "Thinking…" : "Loading Stockfish…"}</span>`;
+    ui.drawArrows(); return;
+  }
+  if (!legalMoves(pos).length) {
+    const mate = inCheck(pos);
+    $("engEval").textContent = mate ? "#" : "½"; $("engDepth").textContent = "";
+    pvs.innerHTML = `<span class="note">${mate ? "Checkmate." : "Stalemate."}</span>`;
+    $("evalFill").style.height = (mate ? (pos.w ? 0 : 100) : 50) + "%";
+    ui.drawArrows(); return;
+  }
+  const best = engine.lines[0];
+  $("engEval").textContent = best ? scoreText(best.sc) : "…";
+  $("engDepth").textContent = engine.depth ? `depth ${engine.depth}${engine.busy ? "" : " ✓"}` : "";
+  $("evalFill").style.height = whiteShare(best && best.sc) + "%";
+  let html = "";
+  engine.lines.forEach((l, k) => {
+    if (!l) return;
+    const ps = positionsOf(toFen(pos), l.pv.slice(0, 12));
+    if (ps.length < 2) return;
+    html += `<div class="pv"><span class="sc">${scoreText(l.sc)}</span>`;
+    for (let i = 1; i < ps.length; i++) {
+      const label = i > 1 ? ps[i].label.replace(/^\d+\.\.\./, "") : ps[i].label;   // "19. Qg4 Qxg4", as on lichess
+      html += `<span class="mv" data-pv="${k}" data-i="${i}">${escapeHtml(label)}</span> `;
+    }
+    html += `</div>`;
+    const m = ps[1].last;
+    ui.arrows.push({ from: m[0], to: m[1], kind: k === 0 ? "eng" : "eng2" });
+  });
+  pvs.innerHTML = html || `<span class="note">Thinking…</span>`;
+  ui.drawArrows();
+}
+/* Click a move in one of Stockfish's lines: play the line up to it on the board. */
+$("engPvs").addEventListener("click", ev => {
+  const el = ev.target.closest(".mv"), cur = app.cur, v = app.view;
+  if (!el || !cur || !v || !engine.pos || engine.pos !== ui.pos) return;
+  const l = engine.lines[+el.dataset.pv];
+  if (!l) return;
+  stopTimers();
+  const ps = positionsOf(toFen(engine.pos), l.pv.slice(0, +el.dataset.i));
+  cur.x = lineOf(v.line).slice(0, v.i + 1).concat(ps.slice(1));
+  renderX();
+  viewAt("x", cur.x.length - 1);
+});
+/* Show or hide the Stockfish panel (after a puzzle, on the website). */
+function showEngineBox(show) {
+  const box = $("engineBox");
+  box.hidden = !(show && engine.available());
+  $("optEngine").checked = engine.on;
+  if (box.hidden) engine.idle();
+  renderEngine();
+}
+function setEngine(on) {
+  engine.on = on;
+  $("optEngine").checked = on;
+  app.state.settings.engine = on;
+  store.save(app.state);
+  if (!on) engine.idle();
+  if (app.view && app.cur && app.cur.finished) viewAt(app.view.line, app.view.i);   // arrows and analysis
+  else renderEngine();
+}
+$("optEngine").addEventListener("change", () => setEngine($("optEngine").checked));
+
 /* ------------------------------------------------------------------ tour */
 /* A spotlight walk through the page: opens by itself on the first visit, and from the Tour button after. */
 const TOUR_KEY = PAGE_KEY + "tourDone";
@@ -1651,7 +1892,8 @@ const tour = {
         ? "Your opponent moves first. Then solve it in your head, show the answer, and say whether you had it."
         : "Your opponent moves first. Then play the winning move: drag or tap a piece. Get it right and they reply, until the puzzle is won." },
     { target: ".actions", title: "Stuck?", text: () => "<b>Show answer</b> (A) counts as a miss. After each puzzle, step through the solution "
-        + "with ‹ › or the arrow keys, copy the position's FEN, and go on to the next puzzle." },
+        + "with ‹ › or the arrow keys, copy the position's FEN, and go on to the next puzzle."
+        + (engine.available() ? " You can also play moves on the board and switch on <b>Stockfish</b> (E) to analyse, as on lichess." : "") },
     { target: ".counts", title: "Today", text: () => "<b>Due</b>: groups to review now. <b>New</b>: groups you can still start today. "
         + "<b>Learned</b>: groups you know." },
     { target: "#btnProgress", title: "Progress", text: () => "Every group as a tile, coloured by how well you know it. "
@@ -1749,6 +1991,7 @@ async function start() {
   }
   renderSaveState();
   pwa.start();
+  engine.on = !!app.state.settings.engine;
   nextPuzzle();
   if (!tour.seen()) setTimeout(() => tour.start(), 1100);   // first visit: after the opening move has played
 }
