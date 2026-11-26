@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crux Drills</title>
 <script>window.CRUX_ENGINE = "engine/stockfish-19-lite-single.js";</script>
+<script>window.CRUX_SYNC = "https://crux-sync.ap9834.workers.dev";</script>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
@@ -169,6 +170,17 @@ dialog::backdrop { background: rgba(0,0,0,.7); }
 .status { font-size: 14px; }
 .status.err { color: var(--bad); } .status.ok { color: var(--good); }
 dialog.wide { width: min(980px, calc(100vw - 32px)); }
+.dlg .row.left { justify-content: flex-start; }
+.codein { flex: 1; min-width: 0; background: #000; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px;
+          font: 14px var(--font-mono); text-transform: uppercase; }
+.syncbox { display: flex; gap: 16px; align-items: flex-start; }
+.syncbox p { margin: 0 0 8px; }
+.syncqr { width: 168px; flex: none; border-radius: 8px; overflow: hidden; background: #fff; }
+.syncqr svg { display: block; width: 100%; height: auto; }
+.synccode { font: 600 15px var(--font-mono); letter-spacing: .03em; color: var(--ink); word-break: break-all; }
+.dlg p.warn { color: var(--warn); font-size: 13px; }
+.savestate.link { cursor: pointer; }
+@media (max-width: 520px) { .syncbox { flex-direction: column; align-items: center; } .syncqr { width: 200px; } }
 .progbar { display: flex; height: 10px; border-radius: 99px; background: #2a2d34; overflow: hidden; }
 .progbar .seg.review { background: var(--good); } .progbar .seg.learning { background: var(--warn); } .progbar .seg.relearn { background: var(--bad); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 13px; color: var(--muted); }
@@ -323,6 +335,8 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
     <div class="opt"><label for="optLearnN">Solves to learn a missed group<small>Solve a new group's first puzzle and it's learned at once.</small></label><input type="number" id="optLearnN" min="1" max="6" step="1"></div>
     <div class="opt"><label for="optSpacing">Time between reviews<small>Applies to every group from its next review.</small></label>
       <select id="optSpacing"><option value="60">Shorter</option><option value="100">Normal</option><option value="160">Longer</option></select></div>
+    <div class="opt" id="rowSync" hidden><label>Sync between devices<small id="syncSummary">Off</small></label>
+      <button class="btn" type="button" id="btnSyncOpen">Set up</button></div>
     <div class="opt"><label>Your progress<small>Back up, move or start over.</small></label>
       <span class="row nowrap"><button class="btn" type="button" id="btnExport">Export</button><button class="btn" type="button" id="btnImport">Import</button><button class="btn danger" type="button" id="btnResetAll">Reset</button></span></div>
     <input type="file" id="fileImport" accept=".js,.json,text/javascript,application/json" hidden>
@@ -343,6 +357,39 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
     <div class="tiles" id="progTiles"></div>
     <div class="progdetail" id="progDetail"></div>
     <div class="row"><button class="btn" type="button" id="btnProgClose">Close</button></div>
+  </div>
+</dialog>
+<dialog id="dlgSync">
+  <div class="dlg">
+    <h2>Sync</h2>
+    <div id="syncOff">
+      <p>Keep your progress the same on your phone, laptop and other devices. It's end-to-end encrypted: only your devices can read it.
+         Practise offline as usual: changes sync when you're back online.</p>
+      <div class="row left"><button class="btn primary" type="button" id="btnSyncStart">Turn on sync</button></div>
+      <p>Already on for another device? Scan its QR code with this device's camera, or type its code here:</p>
+      <div class="row left nowrap"><input class="codein" id="syncCodeIn" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="btn" type="button" id="btnSyncJoin">Link</button></div>
+    </div>
+    <div id="syncJoin" hidden>
+      <p>Link this device to sync with code <code id="syncJoinCode"></code>? Its progress and the synced progress are combined (for each group, the most recent practice counts).</p>
+      <div class="row left"><button class="btn primary" type="button" id="btnSyncLinkYes">Link this device</button><button class="btn" type="button" id="btnSyncLinkNo">Not now</button></div>
+    </div>
+    <div id="syncOn" hidden>
+      <div class="syncbox">
+        <div class="syncqr" id="syncQr" title="Scan with your other device's camera"></div>
+        <div>
+          <p>To add a device, scan this QR code with its camera, or open the link on it, or type the code there.</p>
+          <p><code class="synccode" id="syncCode"></code></p>
+          <p><button class="btn" type="button" id="btnSyncCopy">Copy link</button></p>
+          <p class="warn">Keep it private: anyone with it can see and change your progress.</p>
+        </div>
+      </div>
+      <p class="status" id="syncStatus"></p>
+      <div class="row left"><button class="btn" type="button" id="btnSyncNow">Sync now</button><button class="btn" type="button" id="btnSyncOff">Turn off here</button>
+        <button class="btn danger" type="button" id="btnSyncDelete">Delete synced copy</button></div>
+    </div>
+    <div class="status" id="syncMsg"></div>
+    <div class="row"><button class="btn primary" type="button" id="btnSyncClose">Done</button></div>
   </div>
 </dialog>
 <dialog id="dlgSave">
@@ -665,6 +712,7 @@ const store = {
   },
   save(state) {
     state.saved = Date.now();
+    if (state === app.state) sync.track(state);      // stamps what changed, for syncing
     lsSet(PAGE_KEY + "state", state);
     this.unsaved++;
     if (this.hosted) {
@@ -735,7 +783,18 @@ const store = {
 function setSaveLabel(t) { $("lblSave").textContent = t; $("btnSave").title = t; }
 function renderSaveState() {
   const el = $("saveState"), btn = $("btnSave");
-  if (store.hosted) { el.className = "savestate ok"; el.textContent = "Progress saved in this browser"; btn.hidden = true; return; }
+  if (store.hosted) {
+    btn.hidden = true;
+    el.className = "savestate ok";
+    el.onclick = null;
+    if (!sync.on()) { el.textContent = "Progress saved in this browser"; return; }
+    el.className = "savestate link " + (sync.state === "error" ? "warn" : "ok");
+    el.textContent = sync.state === "offline" ? "Saved · syncs when online" : sync.state === "error" ? "Saved here · sync problem"
+                   : sync.state === "syncing" ? "Saved · syncing…" : "Saved · synced";
+    el.title = syncSummary();
+    el.onclick = () => openSync();
+    return;
+  }
   if (store.server) {
     btn.hidden = !store.serverDown; setSaveLabel("Save progress");
     el.className = "savestate " + (store.serverDown ? "warn" : "ok");
@@ -860,7 +919,7 @@ const sched = {
     if (order === "weakest") return list.sort((a, b) => this.gs(a.sig).interval - this.gs(b.sig).interval || this.gs(a.sig).due - this.gs(b.sig).due);
     return list.sort((a, b) => this.gs(a.sig).due - this.gs(b.sig).due);
   },
-  reviewsLeft() { const m = this.P().reviewsPerDay; return m > 0 ? Math.max(0, m - this.daily().reviews) : Infinity; },
+  reviewsLeft() { const m = this.P().reviewsPerDay; return m > 0 ? Math.max(0, m - this.daily().reviews - sync.othersToday().reviews) : Infinity; },
   dueList(now) { return this.stepsDue(now).concat(this.reviewsDue(now).slice(0, this.reviewsLeft())); },
   newList() {
     const list = app.deck.groups.filter(g => !this.gs(g.sig) && this.active(g));
@@ -873,7 +932,7 @@ const sched = {
     const d = this.daily();
     return {
       due: this.dueList(now).length,
-      newLeft: Math.min(Math.max(0, app.state.settings.newPerDay - d.newDone), this.newList().length),
+      newLeft: Math.min(Math.max(0, app.state.settings.newPerDay - d.newDone - sync.othersToday().newDone), this.newList().length),
       learned: app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && s.status === "review"; }).length
     };
   },
@@ -1521,10 +1580,12 @@ $("btnCopyFen").addEventListener("click", () => copyFen($("btnCopyFen")));
 $("btnCopyFenM").addEventListener("click", () => copyFen($("btnCopyFenM")));
 $("optMode").addEventListener("change", () => { $("rowAuto").hidden = $("optMode").value === "cards"; });
 $("btnResetAll").addEventListener("click", () => {
-  if (!confirm("Forget all your progress here? Your settings stay. This can't be undone (unless you exported your progress).")) return;
-  const settings = app.state.settings;
+  if (!confirm((sync.on() ? "Forget all your progress, here and on your synced devices?" : "Forget all your progress here?")
+               + " Your settings stay. This can't be undone (unless you exported your progress).")) return;
+  const settings = app.state.settings, keep = app.state.sync;
   app.state = freshState();
   app.state.settings = settings;
+  if (keep) app.state.sync = keep;
   app.state.saved = Date.now();
   store.save(app.state);
   app.importing = true; dlgS.close(); app.importing = false;
@@ -1574,8 +1635,11 @@ async function importProgress(file) {
   if (!confirm(msg)) return;
   app.importing = true;
   dlgS.close();
+  const keep = app.state.sync;
   app.state = normalizeSettings(Object.assign(freshState(), st));
+  if (keep) app.state.sync = keep; else delete app.state.sync;   // a file never brings sync bookkeeping with it
   app.state.saved = Date.now();
+  sync.track(app.state);                                          // syncing: the imported progress goes to the other devices
   lsSet(PAGE_KEY + "state", app.state);
   if (store.server) await store.writeServer();
   else if (store.dir) await store.writeFile();
@@ -1879,6 +1943,529 @@ function setEngine(on) {
 }
 $("optEngine").addEventListener("change", () => setEngine($("optEngine").checked));
 
+/* QR codes for the sync link (byte mode, error correction level M, versions 1-10). */
+const qr = (() => {
+  const ECC = [0, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26];      // level M: error-correction codewords per block
+  const BLOCKS = [0, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5];              // level M: blocks
+  const rawModules = v => {
+    let r = (16 * v + 128) * v + 64;
+    if (v >= 2) { const n = Math.floor(v / 7) + 2; r -= (25 * n - 10) * n - 55; if (v >= 7) r -= 36; }
+    return r;
+  };
+  const dataCodewords = v => Math.floor(rawModules(v) / 8) - ECC[v] * BLOCKS[v];
+  const gmul = (x, y) => { let z = 0; for (let i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11d); z ^= ((y >>> i) & 1) * x; } return z; };
+  const rsDivisor = deg => {
+    const r = new Array(deg).fill(0); r[deg - 1] = 1; let root = 1;
+    for (let i = 0; i < deg; i++) {
+      for (let j = 0; j < r.length; j++) { r[j] = gmul(r[j], root); if (j + 1 < r.length) r[j] ^= r[j + 1]; }
+      root = gmul(root, 2);
+    }
+    return r;
+  };
+  const rsRemainder = (data, div) => {
+    const r = div.map(() => 0);
+    for (const b of data) { const f = b ^ r.shift(); r.push(0); div.forEach((c, i) => { r[i] ^= gmul(c, f); }); }
+    return r;
+  };
+  function encode(text) {
+    const bytes = [...new TextEncoder().encode(text)];
+    let v = 1;
+    while (v <= 10 && 4 + (v < 10 ? 8 : 16) + 8 * bytes.length > dataCodewords(v) * 8) v++;
+    if (v > 10) throw new Error("too long for a QR code here");
+    const bits = [];
+    const put = (val, n) => { for (let i = n - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+    put(4, 4); put(bytes.length, v < 10 ? 8 : 16); bytes.forEach(b => put(b, 8));
+    const cap = dataCodewords(v) * 8;
+    put(0, Math.min(4, cap - bits.length));
+    put(0, (8 - bits.length % 8) % 8);
+    for (let p = 0xec; bits.length < cap; p ^= 0xec ^ 0x11) put(p, 8);
+    const data = [];
+    for (let i = 0; i < bits.length; i += 8) data.push(bits.slice(i, i + 8).reduce((a, b) => (a << 1) | b, 0));
+    // error correction, interleaved
+    const nb = BLOCKS[v], el = ECC[v], raw = Math.floor(rawModules(v) / 8), nShort = nb - raw % nb, shortLen = Math.floor(raw / nb);
+    const div = rsDivisor(el), blocks = [];
+    for (let i = 0, k = 0; i < nb; i++) {
+      const dat = data.slice(k, k + shortLen - el + (i < nShort ? 0 : 1)); k += dat.length;
+      const ecc = rsRemainder(dat, div);
+      if (i < nShort) dat.push(0);
+      blocks.push(dat.concat(ecc));
+    }
+    const cw = [];
+    for (let i = 0; i < blocks[0].length; i++) blocks.forEach((b, j) => { if (i !== shortLen - el || j >= nShort) cw.push(b[i]); });
+    // the grid
+    const size = v * 4 + 17;
+    const mod = Array.from({ length: size }, () => new Array(size).fill(false));
+    const fn = Array.from({ length: size }, () => new Array(size).fill(false));
+    const set = (x, y, d) => { mod[y][x] = d; fn[y][x] = true; };
+    for (let i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+    for (const [cx, cy] of [[3, 3], [size - 4, 3], [3, size - 4]])
+      for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+        const x = cx + dx, y = cy + dy, d = Math.max(Math.abs(dx), Math.abs(dy));
+        if (x >= 0 && x < size && y >= 0 && y < size) set(x, y, d !== 2 && d !== 4);
+      }
+    if (v >= 2) {
+      const n = Math.floor(v / 7) + 2, step = Math.ceil((v * 4 + 4) / (n * 2 - 2)) * 2, pos = [6];
+      for (let p = size - 7; pos.length < n; p -= step) pos.splice(1, 0, p);
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        if ((i === 0 && j === 0) || (i === 0 && j === n - 1) || (i === n - 1 && j === 0)) continue;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) set(pos[i] + dx, pos[j] + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      }
+    }
+    const drawFormat = mask => {
+      const data = (0 << 3) | mask;   // level M = 00
+      let r = data; for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+      const b = ((data << 10) | r) ^ 0x5412, bit = i => ((b >>> i) & 1) !== 0;
+      for (let i = 0; i <= 5; i++) set(8, i, bit(i));
+      set(8, 7, bit(6)); set(8, 8, bit(7)); set(7, 8, bit(8));
+      for (let i = 9; i < 15; i++) set(14 - i, 8, bit(i));
+      for (let i = 0; i < 8; i++) set(size - 1 - i, 8, bit(i));
+      for (let i = 8; i < 15; i++) set(8, size - 15 + i, bit(i));
+      set(8, size - 8, true);
+    };
+    drawFormat(0);
+    if (v >= 7) {
+      let r = v; for (let i = 0; i < 12; i++) r = (r << 1) ^ ((r >>> 11) * 0x1f25);
+      const b = (v << 12) | r;
+      for (let i = 0; i < 18; i++) { const d = ((b >>> i) & 1) !== 0, a = size - 11 + i % 3, c = Math.floor(i / 3); set(a, c, d); set(c, a, d); }
+    }
+    let i = 0;
+    for (let right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (let vert = 0; vert < size; vert++) for (let j = 0; j < 2; j++) {
+        const x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - vert : vert;
+        if (!fn[y][x] && i < cw.length * 8) { mod[y][x] = ((cw[i >>> 3] >>> (7 - (i & 7))) & 1) !== 0; i++; }
+      }
+    }
+    const MASKS = [(x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, (x, y) => x % 3 === 0, (x, y) => (x + y) % 3 === 0,
+      (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x, y) => (x * y) % 2 + (x * y) % 3 === 0,
+      (x, y) => ((x * y) % 2 + (x * y) % 3) % 2 === 0, (x, y) => ((x + y) % 2 + (x * y) % 3) % 2 === 0];
+    const applyMask = m => { for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!fn[y][x] && MASKS[m](x, y)) mod[y][x] = !mod[y][x]; };
+    const penalty = () => {   // the usual rules: runs, 2x2 blocks, dark balance
+      let p = 0, dark = 0;
+      for (let a = 0; a < size; a++) for (const horiz of [true, false]) {
+        let run = 1;
+        for (let b = 1; b < size; b++) {
+          const cur = horiz ? mod[a][b] : mod[b][a], prev = horiz ? mod[a][b - 1] : mod[b - 1][a];
+          if (cur === prev) { run++; if (run === 5) p += 3; else if (run > 5) p++; } else run = 1;
+        }
+      }
+      for (let y = 0; y < size - 1; y++) for (let x = 0; x < size - 1; x++) {
+        const c = mod[y][x]; if (c === mod[y][x + 1] && c === mod[y + 1][x] && c === mod[y + 1][x + 1]) p += 3;
+      }
+      for (const row of mod) for (const c of row) if (c) dark++;
+      return p + Math.floor(Math.abs(dark * 20 - size * size * 10) / (size * size)) * 10;
+    };
+    let best = 0, bestP = Infinity;
+    for (let m = 0; m < 8; m++) {
+      applyMask(m); drawFormat(m);
+      const p = penalty(); if (p < bestP) { bestP = p; best = m; }
+      applyMask(m);
+    }
+    applyMask(best); drawFormat(best);
+    return mod;
+  }
+  /* An SVG of the code (dark modules as one path), with the usual quiet zone. */
+  function svg(text) {
+    const m = encode(text), n = m.length, q = 4;
+    let d = "";
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (m[y][x]) d += `M${x + q},${y + q}h1v1h-1z`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n + 2 * q} ${n + 2 * q}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+  }
+  return { encode, svg };
+})();
+
+/* ------------------------------------------------------------------ sync between devices */
+/*
+ * Progress syncs between your devices through a small server (sync/worker.js, set up once;
+ * publish_site.py --sync-url tells the website where it is). End-to-end encrypted: a random
+ * sync code (128 bits), made on the first device and passed to the others by QR code or by
+ * typing it, gives every device the same AES-256 key, an account id and a token for the
+ * server - derived from the code, which never leaves the devices. The server stores only
+ * encrypted bundles it can't read.
+ *
+ * Offline first: practice saves on the device as always. Every change is stamped with its
+ * time; whenever there's a connection, a device sends the changes it hasn't sent (one bundle),
+ * fetches the other devices' bundles, and merges them record by record - each group's
+ * schedule, each puzzle's history and last-seen time, suspended groups, the settings - the
+ * newest change winning. Daily counts are kept per device and added up, so the daily limits
+ * hold across devices. Now and then a device replaces the bundles with one snapshot.
+ */
+const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function b32encode(bytes) {
+  let bits = 0, val = 0, out = "";
+  for (const b of bytes) { val = (val << 8) | b; bits += 8; while (bits >= 5) { out += B32[(val >>> (bits - 5)) & 31]; bits -= 5; } }
+  if (bits) out += B32[(val << (5 - bits)) & 31];
+  return out;
+}
+function b32decode(s) {
+  let bits = 0, val = 0; const out = [];
+  for (const ch of s) {
+    const v = B32.indexOf(ch); if (v < 0) return null;
+    val = (val << 5) | v; bits += 5;
+    if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return new Uint8Array(out);
+}
+/* A typed or scanned code: letters and digits only, any case, 0/1/8 read as O/I/B. */
+function cleanCode(s) {
+  const c = String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/0/g, "O").replace(/1/g, "I").replace(/8/g, "B");
+  return /^[A-Z2-7]{26}$/.test(c) ? c : null;
+}
+const prettyCode = c => c.replace(/(.{5})(?=.)/g, "$1-");
+function b64(bytes) { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); }
+function unb64(s) { const t = atob(s), out = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) out[i] = t.charCodeAt(i); return out; }
+const b64url = bytes => b64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const hexOf = bytes => [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
+async function streamBytes(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+
+const sync = {
+  conf: null,          // {code, device, cursor, last}: kept apart from the progress (not in exports)
+  keys: null,          // {id, token, aes}
+  base: new Map(),     // record -> JSON as last tracked: what counts as a change
+  running: false, again: false, timer: null, state: "off", error: "",
+  available() {
+    return !!window.CRUX_SYNC && store.hosted && !!(window.crypto && crypto.subtle)
+      && typeof CompressionStream === "function" && typeof DecompressionStream === "function";
+  },
+  on() { return !!(this.conf && this.keys && app.state && app.state.sync); },
+  saveConf() { lsSet(PAGE_KEY + "sync", this.conf); },
+  async derive(code) {
+    const secret = b32decode(code);
+    const base = await crypto.subtle.importKey("raw", secret, "HKDF", false, ["deriveBits", "deriveKey"]);
+    const te = new TextEncoder(), salt = te.encode("crux-drills sync");
+    const bits = async info => new Uint8Array(await crypto.subtle.deriveBits(
+      { name: "HKDF", hash: "SHA-256", salt, info: te.encode(info) }, base, 256));
+    return {
+      id: hexOf(await bits("v1 account id")),
+      token: b64url(await bits("v1 server token")),
+      aes: await crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt, info: te.encode("v1 encryption key") },
+        base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"])
+    };
+  },
+  /* Compressed, then encrypted (AES-256-GCM, a fresh random IV each time, tied to this account). */
+  async seal(obj) {
+    const z = await streamBytes(new TextEncoder().encode(JSON.stringify(obj)), new CompressionStream("gzip"));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData: new TextEncoder().encode(this.keys.id) }, this.keys.aes, z));
+    const out = new Uint8Array(1 + 12 + ct.length);
+    out[0] = 1; out.set(iv, 1); out.set(ct, 13);
+    return b64(out);
+  },
+  async open(s) {
+    const raw = unb64(s);
+    if (raw[0] !== 1) throw new Error("unknown bundle format");
+    const z = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: raw.subarray(1, 13), additionalData: new TextEncoder().encode(this.keys.id) }, this.keys.aes, raw.subarray(13));
+    return JSON.parse(new TextDecoder().decode(await streamBytes(new Uint8Array(z), new DecompressionStream("gzip"))));
+  },
+
+  /* ---- the records that sync */
+  snapshot(st) {
+    const m = new Map(), put = (k, v) => m.set(k, JSON.stringify(v));
+    for (const [k, v] of Object.entries(st.groups || {})) put("g:" + k, v);
+    for (const [k, v] of Object.entries(st.cruxes || {})) put("c:" + k, v);
+    for (const [k, v] of Object.entries(st.seen || {})) put("s:" + k, v);
+    for (const k of Object.keys(st.suspended || {})) if (st.suspended[k]) put("u:" + k, true);
+    put("o", st.settings);
+    const d = st.daily || {};
+    put("d:" + this.conf.device, { date: d.date, newDone: d.newDone || 0, reviews: d.reviews || 0 });
+    return m;
+  },
+  value(st, k) {
+    const i = k.indexOf(":"), type = i < 0 ? k : k.slice(0, i), key = k.slice(i + 1);
+    const v = type === "g" ? st.groups[key] : type === "c" ? st.cruxes[key] : type === "s" ? st.seen[key]
+            : type === "u" ? (st.suspended[key] ? true : undefined) : type === "o" ? st.settings
+            : type === "d" ? (key === this.conf.device ? { date: st.daily.date, newDone: st.daily.newDone || 0, reviews: st.daily.reviews || 0 } : undefined)
+            : undefined;
+    return v === undefined ? null : v;
+  },
+  apply(st, k, v) {
+    const i = k.indexOf(":"), type = i < 0 ? k : k.slice(0, i), key = k.slice(i + 1);
+    const c = v === null ? null : JSON.parse(JSON.stringify(v));
+    const setOrDel = (obj, val) => { if (val === null) delete obj[key]; else obj[key] = val; };
+    if (type === "g") setOrDel(st.groups, c);
+    else if (type === "c") setOrDel(st.cruxes, c);
+    else if (type === "s") setOrDel(st.seen, c);
+    else if (type === "u") setOrDel(st.suspended, c ? true : null);
+    else if (type === "o" && c) st.settings = normalizeSettings({ settings: c }).settings;
+  },
+  /* Called before each save: whatever changed since the last save gets stamped and queued. */
+  track(st) {
+    if (!this.on()) return;
+    const S = st.sync, now = Date.now(), cur = this.snapshot(st);
+    let n = 0;
+    const touch = k => { S.stamps[k] = Math.max(now, (S.stamps[k] || 0) + 1); S.dirty[k] = 1; n++; };
+    for (const [k, v] of cur) if (this.base.get(k) !== v) touch(k);
+    for (const k of this.base.keys()) if (!cur.has(k)) touch(k);
+    this.base = cur;
+    if (n) this.kick(4000);
+  },
+  /* Starting to sync on this device: everything here goes up, stamped with when it happened. */
+  seed(st, joining) {
+    st.sync = { stamps: {}, dirty: {}, days: {} };
+    const S = st.sync, cur = this.snapshot(st), t0 = st.saved || Date.now();
+    for (const k of cur.keys()) {
+      const v = this.value(st, k), type = k.split(":")[0];
+      // A device joining keeps the synced settings (its own count as the oldest).
+      S.stamps[k] = type === "o" ? (joining ? 1 : t0)
+        : type === "s" && typeof v === "number" ? v : (v && typeof v === "object" && v.last) || t0;
+      S.dirty[k] = 1;
+    }
+    this.base = cur;
+  },
+  /* Merge another device's records: per record, the newer change wins. */
+  merge(recs, dev) {
+    const st = app.state, S = st.sync;
+    let changed = false;
+    for (const [k, v, t] of recs) {
+      if (k.startsWith("d:")) {
+        const d = k.slice(2);
+        if (d !== this.conf.device && v && (!S.days[d] || t >= S.days[d].t)) { S.days[d] = { ...v, t }; changed = true; }
+        continue;
+      }
+      const mine = S.stamps[k] || 0;
+      if (t < mine || (t === mine && dev <= this.conf.device)) continue;
+      this.apply(st, k, v);
+      S.stamps[k] = t;
+      delete S.dirty[k];
+      if (v === null) this.base.delete(k); else this.base.set(k, JSON.stringify(this.value(st, k)));
+      changed = true;
+    }
+    return changed;
+  },
+  /* The other devices' counts for today, for the daily limits. */
+  othersToday() {
+    const S = app.state && app.state.sync, t = today(), r = { newDone: 0, reviews: 0 };
+    if (!S || !this.on()) return r;
+    for (const [d, v] of Object.entries(S.days || {})) if (d !== this.conf.device && v.date === t) { r.newDone += v.newDone || 0; r.reviews += v.reviews || 0; }
+    return r;
+  },
+
+  /* ---- talking to the server */
+  async api(op, body, since) {
+    const url = `${window.CRUX_SYNC.replace(/\/+$/, "")}/v1/${op}?id=${this.keys.id}` + (since !== undefined ? `&since=${since}` : "");
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 30000);
+    let r;
+    try {
+      const payload = body ? JSON.stringify(body) : undefined;
+      r = await fetch(url, { method: op === "pull" ? "GET" : "POST", cache: "no-store", signal: ctl.signal,
+        keepalive: !!payload && payload.length < 60000,
+        headers: { Authorization: "Bearer " + this.keys.token, ...(payload ? { "Content-Type": "application/json" } : {}) }, body: payload });
+    } catch (e) { const err = new Error("offline"); err.offline = true; throw err; }
+    finally { clearTimeout(timer); }
+    const res = await r.json().catch(() => ({}));
+    if (!r.ok) { const err = new Error(res.error || `HTTP ${r.status}`); err.status = r.status; err.compact = !!res.compact; throw err; }
+    return res;
+  },
+  parts(s) { const out = []; for (let i = 0; i < s.length; i += 500000) out.push(s.slice(i, i + 500000)); return out; },
+  async pull() {
+    let since = this.conf.cursor || 0, changed = false, count = 0;
+    for (;;) {
+      const r = await this.api("pull", null, since);
+      count = r.count;
+      const bySeq = new Map();
+      for (const row of r.rows) { if (!bySeq.has(row.seq)) bySeq.set(row.seq, []); bySeq.get(row.seq)[row.part] = row.blob; }
+      for (const [seq, parts] of bySeq) {
+        try {
+          const b = await this.open(parts.join(""));
+          if (b.dev !== this.conf.device && this.merge(b.recs, b.dev)) changed = true;
+        } catch (e) { this.error = "A synced change couldn't be read (a different sync code?)"; }
+        since = seq;
+      }
+      if (!r.more || !r.rows.length) break;
+    }
+    this.conf.cursor = since;
+    this.saveConf();
+    if (changed) afterSyncMerge();
+    return count;
+  },
+  async push() {
+    const st = app.state, S = st.sync, keys = Object.keys(S.dirty);
+    if (!keys.length) return;
+    const sent = keys.map(k => S.stamps[k]);
+    const blob = await this.seal({ v: 1, dev: this.conf.device, recs: keys.map((k, i) => [k, this.value(st, k), sent[i]]) });
+    try { await this.api("push", { parts: this.parts(blob) }); }
+    catch (e) { if (e.compact) { await this.compact(); return this.push(); } throw e; }
+    keys.forEach((k, i) => { if (S.stamps[k] === sent[i]) delete S.dirty[k]; });
+    lsSet(PAGE_KEY + "state", st);
+  },
+  /* Replace everything up to what this device has seen with one snapshot of it. */
+  async compact() {
+    if (!this.conf.cursor) return;
+    const st = app.state, S = st.sync, recs = [];
+    for (const k of Object.keys(S.stamps)) recs.push([k, this.value(st, k), S.stamps[k]]);
+    for (const [d, v] of Object.entries(S.days)) recs.push(["d:" + d, { date: v.date, newDone: v.newDone, reviews: v.reviews }, v.t]);
+    const blob = await this.seal({ v: 1, dev: "snapshot", recs });
+    await this.api("compact", { upto: this.conf.cursor, parts: this.parts(blob) });
+  },
+  kick(ms = 0) {
+    if (!this.on()) return;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.run(), ms);
+  },
+  /* One sync at a time: asking while one runs makes it go round once more, and waits for that. */
+  run() {
+    if (!this.on()) return Promise.resolve();
+    if (this.running) { this.again = true; return this.current; }
+    this.running = true;
+    this.current = this.cycle();
+    return this.current;
+  },
+  async cycle() {
+    try {
+      do {
+        this.again = false;
+        const count = await this.pull();
+        await this.push();
+        if (count > 60) { await this.pull(); await this.compact(); }
+      } while (this.again && this.on());
+      if (this.on()) { this.state = "ok"; this.error = ""; this.conf.last = Date.now(); this.saveConf(); }
+    } catch (e) {
+      if (!this.on()) { this.running = false; return; }   // turned off meanwhile
+      this.state = e.offline ? "offline" : "error";
+      this.error = e.offline ? "" : e.status === 401 ? "The server didn't accept this device's sync code." : (e.message || String(e));
+    }
+    this.running = false;
+    renderSaveState(); renderSyncDialog();
+  },
+
+  /* ---- turning it on and off */
+  async init() {
+    this.conf = lsGet(PAGE_KEY + "sync");
+    if (!this.available() || !this.conf || !cleanCode(this.conf.code)) { this.conf = null; return; }
+    try { this.keys = await this.derive(this.conf.code); } catch (e) { this.conf = null; return; }
+    if (!app.state.sync) this.seed(app.state);
+    else this.base = this.snapshot(app.state);
+  },
+  async begin(code, joining) {
+    const keys = await this.derive(code);
+    if (joining) {   // a mistyped code would make a new, empty sync: check there's something there first
+      const probe = { keys };
+      const r = await this.api.call(probe, "pull", null, 0);
+      if (!r.count) throw new Error("nothing is synced under that code. Check it, or turn sync on on the other device first.");
+    }
+    this.conf = { code, device: hexOf(crypto.getRandomValues(new Uint8Array(8))), cursor: 0, last: 0 };
+    this.keys = keys;
+    this.seed(app.state, joining);
+    this.saveConf();
+    store.save(app.state);
+    this.state = "syncing"; renderSaveState(); renderSyncDialog();
+    await this.run();
+    return this.state === "ok";
+  },
+  stop() {
+    clearTimeout(this.timer);
+    this.conf = null; this.keys = null; this.base = new Map(); this.state = "off"; this.error = "";
+    delete app.state.sync;
+    localStorage.removeItem(PAGE_KEY + "sync");
+    store.save(app.state);
+  },
+  link() { return `${location.origin}${location.pathname}#sync=${this.conf.code}`; }
+};
+/* After merging other devices' changes: save, and show the new state. */
+function afterSyncMerge() {
+  lsSet(PAGE_KEY + "state", app.state);
+  updateCounts();
+  if ($("dlgProgress").open) renderProgress();
+}
+
+/* ---- the Sync dialog (from Settings), and links from another device */
+const dlgSync = $("dlgSync");
+function syncWhen(t) {
+  if (!t) return "not yet";
+  const d = Date.now() - t;
+  return d < 60000 ? "just now" : d < 3600000 ? `${Math.round(d / 60000)} min ago` : d < 86400000 ? `${Math.round(d / 3600000)} h ago` : new Date(t).toLocaleDateString();
+}
+function syncSummary() {
+  if (!sync.on()) return "Off";
+  if (sync.state === "offline") return "On · offline: syncs when you're back online";
+  if (sync.state === "error") return "On · not syncing: " + sync.error;
+  if (sync.state === "syncing") return "On · syncing…";
+  return "On · synced " + syncWhen(sync.conf.last);
+}
+function renderSyncDialog(mode) {
+  $("syncSummary").textContent = syncSummary();
+  $("btnSyncOpen").textContent = sync.on() ? "Manage" : "Set up";
+  if (!dlgSync.open && !mode) return;
+  const on = sync.on(), joinCode = dlgSync.dataset.join || "";
+  $("syncOff").hidden = on || !!joinCode;
+  $("syncJoin").hidden = !joinCode;
+  $("syncOn").hidden = !on || !!joinCode;
+  if (joinCode) $("syncJoinCode").textContent = prettyCode(joinCode);
+  $("btnSyncClose").parentElement.hidden = !!joinCode;   // "Link" or "Not now" there
+  if (on && !joinCode) {
+    if ($("syncQr").dataset.code !== sync.conf.code) { $("syncQr").innerHTML = qr.svg(sync.link()); $("syncQr").dataset.code = sync.conf.code; }
+    $("syncCode").textContent = prettyCode(sync.conf.code);
+    $("syncStatus").textContent = syncSummary().replace(/^On · /, "");
+    $("syncStatus").className = "status " + (sync.state === "error" ? "err" : "");
+  }
+}
+function openSync(joinCode) {
+  if (!sync.available()) return;
+  dlgSync.dataset.join = joinCode || "";
+  $("syncMsg").textContent = "";
+  renderSyncDialog(true);
+  if (!dlgSync.open) dlgSync.showModal();
+}
+async function syncStartOrJoin(code, joining) {
+  const msg = $("syncMsg");
+  msg.className = "status"; msg.textContent = joining ? "Linking…" : "Turning on…";
+  for (const b of dlgSync.querySelectorAll("button")) b.disabled = true;
+  let ok = false;
+  try { ok = await sync.begin(code, joining); }
+  catch (e) { sync.state = sync.on() ? "error" : "off"; sync.error = e.offline ? "you're offline, and linking needs a connection." : (e.message || String(e)); }
+  for (const b of dlgSync.querySelectorAll("button")) b.disabled = false;
+  dlgSync.dataset.join = "";
+  renderSyncDialog(true);
+  msg.className = "status " + (ok ? "ok" : sync.state === "offline" ? "" : "err");
+  msg.textContent = ok ? (joining ? "Linked: this device now syncs with your others." : "Sync is on. Add your other devices with the QR code or the code below.")
+    : sync.state === "offline" ? "Sync is on, but you're offline: it syncs when you're back online."
+    : (joining ? "Couldn't link: " : "Couldn't sync: ") + sync.error;
+  updateCounts();
+}
+$("btnSyncOpen").addEventListener("click", () => openSync());
+$("btnSyncStart").addEventListener("click", () => syncStartOrJoin(b32encode(crypto.getRandomValues(new Uint8Array(16))), false));
+$("btnSyncJoin").addEventListener("click", () => {
+  const code = cleanCode($("syncCodeIn").value);
+  if (!code) { $("syncMsg").className = "status err"; $("syncMsg").textContent = "That isn't a sync code: it has 26 letters and digits."; return; }
+  syncStartOrJoin(code, true);
+});
+$("btnSyncLinkYes").addEventListener("click", () => {
+  const code = dlgSync.dataset.join;
+  if (sync.on()) sync.stop();
+  syncStartOrJoin(code, true);
+});
+$("btnSyncLinkNo").addEventListener("click", () => { dlgSync.dataset.join = ""; dlgSync.close(); });
+$("btnSyncCopy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(sync.link()); $("syncMsg").className = "status ok"; $("syncMsg").textContent = "Link copied. Open it on your other device (it's private: send it only to yourself)."; }
+  catch (e) { $("syncMsg").className = "status"; $("syncMsg").textContent = sync.link(); }
+});
+$("btnSyncNow").addEventListener("click", () => { sync.state = "syncing"; renderSyncDialog(); sync.run(); });
+$("btnSyncOff").addEventListener("click", () => {
+  if (!confirm("Stop syncing on this device? Your progress stays here; your other devices keep syncing with each other.")) return;
+  sync.stop(); renderSyncDialog(true); renderSaveState();
+});
+$("btnSyncDelete").addEventListener("click", async () => {
+  if (!confirm("Delete the synced copy from the server, and stop syncing here? Progress on each device stays on it. Turn sync off on your other devices too, or they'll upload theirs again.")) return;
+  try { await sync.api("delete", {}); } catch (e) { $("syncMsg").className = "status err"; $("syncMsg").textContent = e.offline ? "You're offline: try again when you're online." : "Couldn't delete it: " + e.message; return; }
+  sync.stop(); renderSyncDialog(true); renderSaveState();
+  $("syncMsg").className = "status ok"; $("syncMsg").textContent = "Deleted. Sync is off on this device.";
+});
+$("btnSyncClose").addEventListener("click", () => dlgSync.close());
+/* A sync link opened on this device (#sync=CODE): offer to link it. */
+function syncFromLink() {
+  const m = location.hash.match(/[#&]sync=([A-Za-z0-9-]+)/);
+  if (!m) return;
+  history.replaceState(null, "", location.pathname + location.search);   // the code doesn't stay in the address bar
+  const code = cleanCode(m[1]);
+  if (!code || !sync.available() || (sync.on() && sync.conf.code === code)) return;
+  openSync(code);
+}
+window.addEventListener("online", () => sync.kick(0));
+document.addEventListener("visibilitychange", () => sync.kick(0));   // coming back: fetch; leaving: send
+setInterval(() => { if (document.visibilityState === "visible") sync.kick(0); }, 90000);
+
 /* ------------------------------------------------------------------ tour */
 /* A spotlight walk through the page: opens by itself on the first visit, and from the Tour button after. */
 const TOUR_KEY = PAGE_KEY + "tourDone";
@@ -1899,7 +2486,8 @@ const tour = {
     { target: "#btnProgress", title: "Progress", text: () => "Every group as a tile, coloured by how well you know it. "
         + "Tap one to practise it, suspend it or start it over. Shortcut: P." },
     { target: "#btnSettings", title: "Settings", text: () => "Play the moves or use flashcards, go to the next puzzle automatically, "
-        + "set new groups per day and review spacing, and back up your progress. Shortcut: S." },
+        + "set new groups per day and review spacing, and back up your progress"
+        + (sync.available() ? ", or sync it between your devices" : "") + ". Shortcut: S." },
     { target: "#btnTour", title: "That's it", text: () => "Your progress saves by itself. Take this tour again any time from here." }
   ],
   seen() { return !!lsGet(TOUR_KEY); },
@@ -1981,6 +2569,7 @@ async function start() {
   app.state = normalizeSettings(st ? Object.assign(freshState(), st) : freshState());
   if (!deck) showNotice("<b>No deck.js next to this page</b>, so these are 8 example puzzles. Run <b>make_practice.py</b> to put your groups in this folder, then reload.");
   await store.restore();
+  await sync.init();          // before the groups are brought up to date, so that counts as a change too
   reconcile();
   if (store.server) { app.state.saved = app.state.saved || Date.now(); store.writeServer(); }
   else if (deck && location.protocol === "file:" && store.canWrite && !store.dir && !store.needsPermission) {
@@ -1991,6 +2580,10 @@ async function start() {
   }
   renderSaveState();
   pwa.start();
+  $("rowSync").hidden = !sync.available();
+  renderSyncDialog();
+  syncFromLink();
+  sync.kick(0);
   engine.on = !!app.state.settings.engine;
   nextPuzzle();
   if (!tour.seen()) setTimeout(() => tour.start(), 1100);   // first visit: after the opening move has played
