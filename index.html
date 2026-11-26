@@ -200,6 +200,15 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 .progdetail p { margin: 0 0 4px; }
 .progdetail .row { justify-content: flex-start; margin-top: 8px; }
 .hint { color: var(--muted); font-size: 13px; }
+/* Progress fits the screen: the title and close button stay put, the tiles scroll inside. */
+#dlgProgress { max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: hidden; }
+#dlgProgress[open] { display: flex; flex-direction: column; }
+#dlgProgress .dlghead { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 0 22px; }
+#dlgProgress .dlghead h2 { margin: 0; font: 700 24px/1 var(--font-display); text-transform: uppercase; }
+#dlgProgress .xbtn { padding: 6px; }
+#dlgProgress .dlg { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-top: 12px; }
+#dlgProgress .dlg > * { flex-shrink: 0; }
+#dlgProgress .dlg > .tiles { flex: 0 1 auto; min-height: 64px; }
 .tour { position: fixed; inset: 0; z-index: 100; }
 .tour-spot { position: fixed; border-radius: 8px; box-shadow: 0 0 0 200vmax rgba(0,0,0,.72); outline: 2px solid var(--accent);
              transition: left .2s ease, top .2s ease, width .2s ease, height .2s ease; pointer-events: none; }
@@ -246,6 +255,16 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
   .top .btn.ib { padding: 7px; }
   .top .lbl { display: none; }
   .notice { margin: 8px 8px 0; font-size: 13px; padding: 6px 10px; }
+  #dlgProgress { width: calc(100vw - 16px); max-width: none; max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+  #dlgProgress .dlghead { padding: 12px 10px 0 14px; }
+  #dlgProgress .dlghead h2 { font-size: 21px; }
+  #dlgProgress .dlg { padding: 10px 14px 14px; gap: 10px; }
+  #dlgProgress .dlg p { font-size: 13px; }
+  #dlgProgress .dlg > .tiles { max-height: none; }            /* phones: the tiles take whatever room is left */
+  .legend { font-size: 12px; gap: 4px 12px; }
+  .legend .lgx { display: none; }
+  .progdetail { min-height: 0; }
+  .progdetail h3 { font-size: 18px; }
 }
 @media (max-width: 369px) {
   .top .btn.ib { padding: 6px; }
@@ -345,18 +364,18 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 </dialog>
 
 <dialog id="dlgProgress" class="wide">
+  <div class="dlghead"><h2>Your progress</h2>
+    <button class="btn ib xbtn" type="button" id="btnProgClose" title="Close (Esc)" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
   <div class="dlg">
-    <h2>Your progress</h2>
     <p id="progSummary"></p>
     <div class="progbar" id="progBar"></div>
     <div class="legend"><span><i class="tile"></i>New</span><span><i class="tile" style="background:var(--warn)"></i>Learning</span>
       <span><i class="tile" style="background:var(--bad)"></i>Relearning</span>
-      <span><i class="tile" style="background:hsl(145,45%,62%)"></i><i class="tile" style="background:hsl(145,70%,32%)"></i>Learned (deeper: longer between reviews)</span>
+      <span><i class="tile" style="background:hsl(145,45%,62%)"></i><i class="tile" style="background:hsl(145,70%,32%)"></i>Learned<span class="lgx">(deeper: longer between reviews)</span></span>
       <span><i class="tile due"></i>Due now</span>
       <label class="sortby">Order <select id="progSort"><option value="deck">Biggest groups first</option><option value="progress">By progress</option></select></label></div>
     <div class="tiles" id="progTiles"></div>
     <div class="progdetail" id="progDetail"></div>
-    <div class="row"><button class="btn" type="button" id="btnProgClose">Close</button></div>
   </div>
 </dialog>
 <dialog id="dlgSync">
@@ -2467,10 +2486,12 @@ document.addEventListener("visibilitychange", () => sync.kick(0));   // coming b
 setInterval(() => { if (document.visibilityState === "visible") sync.kick(0); }, 90000);
 
 /* ------------------------------------------------------------------ tour */
-/* A spotlight walk through the page: opens by itself on the first visit, and from the Tour button after. */
-const TOUR_KEY = PAGE_KEY + "tourDone";
+/* A spotlight walk through the page: opens by itself on the first visit, and from the Tour button after.
+   Steps marked "since: N" are new in tour version N: someone who saw an older tour is shown just those, once. */
+const TOUR_KEY = PAGE_KEY + "tourDone";      // the tour version seen (true = version 1, from before versions)
+const TOUR_VERSION = 2;
 const tour = {
-  open: false, i: 0,
+  open: false, i: 0, list: [], news: false,
   steps: [
     { title: "Welcome to Crux Drills", text: () => "Each puzzle here is the <b>crux</b> of a lichess puzzle: the moment where one move wins. "
         + "Puzzles that teach the same idea form a <b>group</b>. Solve a new group's first puzzle and it's learned at once; "
@@ -2486,13 +2507,26 @@ const tour = {
     { target: "#btnProgress", title: "Progress", text: () => "Every group as a tile, coloured by how well you know it. "
         + "Tap one to practise it, suspend it or start it over. Shortcut: P." },
     { target: "#btnSettings", title: "Settings", text: () => "Play the moves or use flashcards, go to the next puzzle automatically, "
-        + "set new groups per day and review spacing, and back up your progress"
-        + (sync.available() ? ", or sync it between your devices" : "") + ". Shortcut: S." },
+        + "set new groups per day and review spacing, and back up your progress. Shortcut: S." },
+    { target: "#btnSettings", since: 2, when: () => sync.available(), title: "Sync your devices",
+      text: () => (sync.on() ? "Sync is on here. " : "")
+        + "The same progress on your phone and laptop: in <b>Settings</b>, set up <b>Sync</b>, then scan its QR code with your other device's camera. "
+        + "Works offline too: it catches up when you're back online. End-to-end encrypted." },
     { target: "#btnTour", title: "That's it", text: () => "Your progress saves by itself. Take this tour again any time from here." }
   ],
-  seen() { return !!lsGet(TOUR_KEY); },
-  start() {
+  seenVersion() { const v = lsGet(TOUR_KEY); return v === true ? 1 : Number(v) || 0; },
+  /* What to show on opening the page: the whole tour the first time, just what's new after an update. */
+  auto() {
+    const v = this.seenVersion();
+    if (!v) this.start();
+    else if (v < TOUR_VERSION) this.start(v);
+  },
+  /* The whole tour, or (since = a version seen before) only the steps added after it. */
+  start(since = 0) {
     if (this.open || document.querySelector("dialog[open]")) return;
+    const list = this.steps.filter(s => (!s.when || s.when()) && (!since || (s.since || 1) > since));
+    if (!list.length) return;          // nothing new that applies here (say, sync on a page without a sync server): ask again next time
+    this.list = list; this.news = !!since;
     this.open = true; this.i = 0;
     $("tour").hidden = false;
     this.show(0);
@@ -2501,24 +2535,24 @@ const tour = {
     if (!this.open) return;
     this.open = false;
     $("tour").hidden = true;
-    lsSet(TOUR_KEY, true);
+    lsSet(TOUR_KEY, TOUR_VERSION);
     $("btnTour").focus({ preventScroll: true });
   },
   show(i) {
     this.i = i;
-    const st = this.steps[i], last = i === this.steps.length - 1;
-    $("tourStep").textContent = `${i + 1} of ${this.steps.length}`;
+    const n = this.list.length, st = this.list[i], last = i === n - 1;
+    $("tourStep").textContent = this.news ? (n > 1 ? `New · ${i + 1} of ${n}` : "New") : `${i + 1} of ${n}`;
     $("tourTitle").textContent = st.title;
     $("tourText").innerHTML = st.text();
     $("tourBack").hidden = i === 0;
     $("tourSkip").hidden = last;
-    $("tourNext").textContent = last ? "Done" : i === 0 ? "Show me" : "Next";
+    $("tourNext").textContent = last ? (this.news ? "Got it" : "Done") : i === 0 && !this.news ? "Show me" : "Next";
     const el = this.target();
     if (el) { const r = el.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) el.scrollIntoView({ block: "nearest" }); }
     this.place();
     $("tourNext").focus({ preventScroll: true });
   },
-  target() { const sel = this.steps[this.i].target, el = sel && document.querySelector(sel); return el && el.offsetParent ? el : null; },
+  target() { const sel = this.list[this.i].target, el = sel && document.querySelector(sel); return el && el.offsetParent ? el : null; },
   /* Spotlight the target, and put the card below it, above it, beside it, or (no room) at the bottom of the screen. */
   place() {
     if (!this.open) return;
@@ -2553,7 +2587,7 @@ const tour = {
   }
 };
 $("btnTour").addEventListener("click", () => tour.start());
-$("tourNext").addEventListener("click", () => (tour.i < tour.steps.length - 1 ? tour.show(tour.i + 1) : tour.close()));
+$("tourNext").addEventListener("click", () => (tour.i < tour.list.length - 1 ? tour.show(tour.i + 1) : tour.close()));
 $("tourBack").addEventListener("click", () => tour.show(tour.i - 1));
 $("tourSkip").addEventListener("click", () => tour.close());
 window.addEventListener("resize", () => tour.place());
@@ -2586,7 +2620,7 @@ async function start() {
   sync.kick(0);
   engine.on = !!app.state.settings.engine;
   nextPuzzle();
-  if (!tour.seen()) setTimeout(() => tour.start(), 1100);   // first visit: after the opening move has played
+  setTimeout(() => tour.auto(), 1100);   // first visit or new steps: after the opening move has played
 }
 start();
 </script>
