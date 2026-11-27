@@ -201,6 +201,29 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 .progdetail p { margin: 0 0 4px; }
 .progdetail .row { justify-content: flex-start; margin-top: 8px; }
 .hint { color: var(--muted); font-size: 13px; }
+.tile.out { opacity: .3; }
+/* Puzzle rating: a slider with two handles (two range inputs on one track). */
+#rowRating { flex-wrap: wrap; row-gap: 6px; }
+#rowRating > label { flex: 1 1 auto; }
+.rval { color: var(--accent, #3b8cff); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dual { position: relative; flex: 1 1 100%; height: 28px; touch-action: pan-y; cursor: pointer; }
+.dtrack { position: absolute; left: 10px; right: 10px; top: 12px; height: 4px; border-radius: 2px; background: rgba(127,127,127,.35); }
+.dfill { position: absolute; top: 0; height: 100%; border-radius: 2px; background: var(--accent, #3b8cff); }
+.dual input[type=range] { position: absolute; left: 0; top: 0; width: 100%; height: 28px; margin: 0; background: none;
+  -webkit-appearance: none; appearance: none; pointer-events: none; }
+.dual input[type=range]::-webkit-slider-runnable-track { background: none; border: 0; height: 28px; }
+.dual input[type=range]::-moz-range-track { background: none; border: 0; }
+.dual input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; pointer-events: none; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; border: 2px solid var(--accent, #3b8cff); cursor: pointer; margin-top: 4px; }
+.dual input[type=range]::-moz-range-thumb { pointer-events: none; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  border: 2px solid var(--accent, #3b8cff); cursor: pointer; }
+.dual input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(59,140,255,.45); }
+.dual input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(59,140,255,.45); }
+.dticks { flex: 1 1 100%; position: relative; height: 14px; color: var(--muted); font-size: 11px; margin-top: -4px; }
+.dticks span { position: absolute; top: 0; left: calc(10px + var(--f) * (100% - 20px)); transform: translateX(-50%); white-space: nowrap; }
+.dticks span:first-child { transform: translateX(-10px); }
+.dticks span:last-child { transform: translateX(calc(-100% + 10px)); }
+}
 .deckload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; padding-top: 5px; padding-bottom: 5px; }
 .dlbar { flex: 1 1 120px; height: 6px; border-radius: 3px; background: rgba(127,127,127,.25); overflow: hidden; min-width: 80px; }
 .dlbar span { display: block; height: 100%; background: var(--accent, #3b8cff); }
@@ -354,6 +377,13 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
     <div class="opt"><label for="optMode">How you solve<small>Flashcards: solve it in your head, show the answer, then say if you had it.</small></label>
       <select id="optMode"><option value="play">Play the moves</option><option value="cards">Flashcards</option></select></div>
     <div class="opt" id="rowAuto"><label for="optAuto">Next puzzle automatically<small>After a solve, the next puzzle starts on its own.</small></label><input class="switch" type="checkbox" id="optAuto"></div>
+    <div class="opt" id="rowRating"><label>Puzzle rating<small id="ratingInfo"></small></label><b class="rval" id="ratingVal"></b>
+      <div class="dual" id="ratingSlider">
+        <div class="dtrack"><div class="dfill" id="ratingFill"></div></div>
+        <input type="range" id="optRatingLo" min="400" max="3300" step="100" aria-label="Lowest puzzle rating">
+        <input type="range" id="optRatingHi" min="400" max="3300" step="100" aria-label="Highest puzzle rating">
+      </div>
+      <div class="dticks"><span style="--f:0">400</span><span style="--f:.2759">1200</span><span style="--f:.5517">2000</span><span style="--f:.8276">2800</span><span style="--f:1">3300+</span></div></div>
     <div class="opt"><label for="optNew">New groups per day</label><input type="number" id="optNew" min="0" max="200" step="1"></div>
     <div class="opt"><label for="optRevMax">Reviews per day<small>0 = no limit.</small></label><input type="number" id="optRevMax" min="0" max="9999" step="1"></div>
     <div class="opt"><label for="optLearnN">Solves to learn a missed group<small>Solve a new group's first puzzle and it's learned at once.</small></label><input type="number" id="optLearnN" min="1" max="6" step="1"></div>
@@ -361,6 +391,8 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
       <select id="optSpacing"><option value="60">Shorter</option><option value="100">Normal</option><option value="160">Longer</option></select></div>
     <div class="opt" id="rowSync" hidden><label>Sync between devices<small id="syncSummary">Off</small></label>
       <button class="btn" type="button" id="btnSyncOpen">Set up</button></div>
+    <div class="opt"><label>What's new<small>The latest features, as a short tour.</small></label>
+      <button class="btn" type="button" id="btnWhatsNew">Show</button></div>
     <div class="opt"><label>Your progress<small>Back up, move or start over.</small></label>
       <span class="row nowrap"><button class="btn" type="button" id="btnExport">Export</button><button class="btn" type="button" id="btnImport">Import</button><button class="btn danger" type="button" id="btnResetAll">Reset</button></span></div>
     <input type="file" id="fileImport" accept=".js,.json,text/javascript,application/json" hidden>
@@ -786,7 +818,7 @@ const DEFAULT_SRS = {
   hard: 1.2                // growth for Hard
 };
 /* Settings you can change: how you solve, auto-next, and four schedule knobs. The rest of DEFAULT_SRS is fixed. */
-const DEFAULT_SETTINGS = { v: 2, mode: "play", auto: false, engine: false, newPerDay: 20, srs: { ...DEFAULT_SRS } };
+const DEFAULT_SETTINGS = { v: 3, mode: "play", auto: false, engine: false, newPerDay: 20, rating: { lo: 600, hi: 3000 }, srs: { ...DEFAULT_SRS } };
 function normalizeSettings(st) {
   const old = st.settings || {}, srs = old.srs || {};
   const pick = (k, d) => (typeof srs[k] === "number" && isFinite(srs[k]) ? srs[k] : d);
@@ -795,11 +827,16 @@ function normalizeSettings(st) {
   const newPerDay = typeof old.newPerDay === "number" && !was(old.newPerDay, 3) ? old.newPerDay : DEFAULT_SETTINGS.newPerDay;
   const learnN = was(srs.learnN, 3) ? DEFAULT_SRS.learnN : pick("learnN", DEFAULT_SRS.learnN);
   st.settings = {
-    v: 2,
+    v: 3,
     mode: old.mode === "cards" ? "cards" : "play",
     auto: !!old.auto,
     engine: !!old.engine,
     newPerDay,
+    // Puzzle ratings to practise: 0 = no limit on that side.
+    // (before v3 there was no rating setting: everyone starts from the default range)
+    rating: old.rating && (old.v || 0) >= 3
+      ? { lo: Math.max(0, Math.round(+old.rating.lo || 0)), hi: Math.max(0, Math.round(+old.rating.hi || 0)) }
+      : { ...DEFAULT_SETTINGS.rating },
     srs: { ...DEFAULT_SRS, reviewsPerDay: pick("reviewsPerDay", 0), learnN, mod: pick("mod", 100) }
   };
   st.suspended = st.suspended || {};
@@ -1040,7 +1077,7 @@ const sched = {
   P() { return app.state.settings.srs; },
   daily() { const st = app.state; if (st.daily.date !== today()) st.daily = { date: today(), newDone: 0, reviews: 0, sinceReview: 0 }; return st.daily; },
   gs(sig) { return app.state.groups[sig] || null; },
-  active(g) { return !app.state.suspended[g.sig]; },
+  active(g) { return !app.state.suspended[g.sig] && membersInRange(g).length > 0; },
   /* Groups you're learning or relearning whose next step is due: not limited per day. */
   stepsDue(now) {
     return app.deck.groups.filter(g => { const s = this.gs(g.sig); return s && this.active(g) && (s.status === "learning" || s.status === "relearn") && s.due <= now; })
@@ -1092,17 +1129,18 @@ const sched = {
     return { group: g, crux: this.pickCrux(g) };
   },
   pickCrux(g) {
-    const s = this.gs(g.sig);
+    const s = this.gs(g.sig), mine = membersInRange(g).length ? membersInRange(g) : g.members;
     if (!s || s.status === "learning") {
       const step = s ? s.step : 0;                     // new groups start with their primers, in order
-      if (step < g.primers.length) return g.primers[step];
+      const primers = g.primers.filter(id => mine.includes(id));
+      if (step < primers.length) return primers[step];
     }
     const seen = app.state.seen;
     const last = s && s.lastCrux;
-    const pool = g.members.filter(id => id !== last);
+    const pool = mine.filter(id => id !== last);
     const unseen = pool.filter(id => !seen[id]);
     if (unseen.length) return unseen[0];
-    return pool.sort((a, b) => (seen[a] || 0) - (seen[b] || 0))[0] || g.members[0];  // interchangeable: least recently seen
+    return pool.sort((a, b) => (seen[a] || 0) - (seen[b] || 0))[0] || mine[0];  // interchangeable: least recently seen
   },
   /* quality: "again" (missed), "hard", "good" or "easy"; true/false mean good/again. */
   grade(g, cruxId, quality, now = Date.now()) {
@@ -1343,7 +1381,31 @@ function setDeck(deck) {
   app.deck = deck;
   app.byId = new Map(deck.cruxes.map(c => [c.id, c]));
   app.groupOf = new Map();
-  deck.groups.forEach((g, i) => { g.num = i; g.members.forEach(id => app.groupOf.set(id, g)); });
+  // Every puzzle's rating, known from the start (the website's index has them, so the rating
+  // filter works before, or without, the puzzles themselves being downloaded).
+  app.ratingOf = new Map(deck.cruxes.map(c => [c.id, c.r]));
+  deck.groups.forEach((g, i) => {
+    g.num = i;
+    g.members.forEach((id, k) => { app.groupOf.set(id, g); if (g.mr) app.ratingOf.set(id, g.mr[k]); });
+  });
+}
+/* The puzzle-rating filter (Settings). A group takes part if it has a puzzle in the range, and
+   only those puzzles of it are given. Everything's on the device, so it works offline too. */
+function ratingRange() { const r = (app.state && app.state.settings.rating) || {}; return { lo: r.lo || 0, hi: r.hi || 0 }; }
+function inRatingRange(id, lo, hi) {
+  const r = app.ratingOf.get(id);
+  return r === undefined || ((!lo || r >= lo) && (!hi || r <= hi));
+}
+function membersInRange(g) {
+  const { lo, hi } = ratingRange();
+  if (!lo && !hi) return g.members;
+  const key = lo + "-" + hi;
+  if (g._rk !== key) { g._rk = key; g._in = g.members.filter(id => inRatingRange(id, lo, hi)); }
+  return g._in;
+}
+function groupsInRange(lo, hi) {
+  if (!lo && !hi) return app.deck.groups.length;
+  return app.deck.groups.reduce((n, g) => n + (g.members.some(id => inRatingRange(id, lo, hi)) ? 1 : 0), 0);
 }
 function lastPly(c) {
   // The last half-move of the puzzle: where you have a choice again (or the payoff, for decks without puzzle ends).
@@ -1414,6 +1476,14 @@ function showDone() {
   const upcoming = app.deck.groups.map(g => sched.gs(g.sig)).filter(s => s && s.status !== "new").map(s => s.due).sort((a, b) => a - b)[0];
   const left = app.deck.groups.filter(g => !sched.gs(g.sig) && sched.active(g)).length;
   let txt = "No groups are due right now.";
+  const rr = ratingRange();
+  if ((rr.lo || rr.hi) && !app.deck.groups.some(g => membersInRange(g).length)) {
+    $("doneText").textContent = `No puzzles are rated ${ratingLabel(rr.lo, rr.hi).replace("Up to", "up to")}. Widen the puzzle rating in Settings.`;
+    $("done").hidden = false;
+    $("prompt").textContent = ""; $("prompt").className = "prompt";
+    setMsg("", ""); $("lines").hidden = true; $("fenRow").classList.add("off"); showEngineBox(false); setActions("none");
+    return;
+  }
   if (sched.reviewsLeft() === 0 && sched.reviewsDue(Date.now()).length) txt = "You've done today's reviews.";
   if (upcoming) txt += ` The next review is ${whenText(upcoming)}.`;
   if (left > 0) txt += ` ${left} groups are still new; you've started today's new groups.`;
@@ -1709,9 +1779,68 @@ function openSettings() {
   $("optNew").value = s.newPerDay; $("optRevMax").value = s.srs.reviewsPerDay; $("optLearnN").value = s.srs.learnN;
   $("optSpacing").value = closestSpacing(s.srs.mod);
   $("rowAuto").hidden = s.mode === "cards";
+  fillRating(s.rating);
   dlgS.showModal();
 }
 $("btnSettings").addEventListener("click", openSettings);
+$("btnWhatsNew").addEventListener("click", () => { dlgS.close(); tour.start(tour.updates.filter(u => tour.applies(u))); });
+/* The rating slider: 400 to 3300 in steps of 100 (lichess puzzles run from 400 to about 3300). A handle at
+   either end means no limit that way, so puzzles rated beyond (a 3330 one, say) are never left out. */
+const R_MIN = 400, R_MAX = 3300, R_STEP = 100;
+function ratingLabel(lo, hi) { return !lo && !hi ? "All ratings" : !lo ? `Up to ${hi}` : !hi ? `${lo} and up` : `${lo}–${hi}`; }
+function fillRating(r) {
+  $("optRatingLo").value = r.lo || R_MIN;
+  $("optRatingHi").value = r.hi || R_MAX;
+  ratingShown();
+}
+function ratingChosen() {
+  const lo = +$("optRatingLo").value, hi = +$("optRatingHi").value;
+  return { lo: lo <= R_MIN ? 0 : lo, hi: hi >= R_MAX ? 0 : hi };
+}
+function ratingShown(ev) {
+  const a = $("optRatingLo"), b = $("optRatingHi");
+  // The handles can't cross: the one moved pushes the other, keeping them a step apart.
+  if (+a.value > +b.value - R_STEP) {
+    if (ev && ev.target === b) a.value = Math.max(R_MIN, +b.value - R_STEP);
+    else b.value = Math.min(R_MAX, +a.value + R_STEP);
+    if (+a.value > +b.value - R_STEP) a.value = +b.value - R_STEP;
+  }
+  // The lower handle on top when both are at the right end, so it can still be dragged back.
+  a.style.zIndex = +a.value >= R_MAX - R_STEP ? 3 : 2; b.style.zIndex = 2;
+  const pos = v => (v - R_MIN) / (R_MAX - R_MIN) * 100;
+  const f = $("ratingFill"); f.style.left = pos(+a.value) + "%"; f.style.width = (pos(+b.value) - pos(+a.value)) + "%";
+  const { lo, hi } = ratingChosen(), n = groupsInRange(lo, hi), all = app.deck.groups.length;
+  $("ratingVal").textContent = ratingLabel(lo, hi);
+  a.setAttribute("aria-valuetext", lo ? String(lo) : "no lower limit");
+  b.setAttribute("aria-valuetext", hi ? String(hi) : "no upper limit");
+  $("ratingInfo").textContent = !lo && !hi ? `All ${all.toLocaleString()} groups`
+    : `${n.toLocaleString()} of ${all.toLocaleString()} groups`;   // short: no jump in the layout while dragging
+}
+$("optRatingLo").addEventListener("input", ratingShown);
+$("optRatingHi").addEventListener("input", ratingShown);
+/* Dragging (mouse, finger or pen): the handle nearest to where you press follows you. The two inputs
+   underneath are what the keyboard and screen readers use. */
+(() => {
+  const box = $("ratingSlider"), a = $("optRatingLo"), b = $("optRatingHi");
+  let drag = null;
+  const valAt = x => {
+    const r = box.getBoundingClientRect(), f = Math.min(1, Math.max(0, (x - r.left - 10) / (r.width - 20)));
+    return Math.round((R_MIN + f * (R_MAX - R_MIN)) / R_STEP) * R_STEP;
+  };
+  const move = ev => { if (!drag) return; drag.value = valAt(ev.clientX); ratingShown({ target: drag }); };
+  box.addEventListener("pointerdown", ev => {
+    const v = valAt(ev.clientX), da = Math.abs(v - a.value), db = Math.abs(v - b.value);
+    drag = da < db ? a : db < da ? b : (v <= +a.value ? a : b);
+    try { box.setPointerCapture(ev.pointerId); } catch (e) { /* fine without */ }
+    drag.focus({ preventScroll: true });
+    move(ev);
+    ev.preventDefault();
+  });
+  box.addEventListener("pointermove", move);
+  const stop = () => { drag = null; };
+  box.addEventListener("pointerup", stop);
+  box.addEventListener("pointercancel", stop);
+})();
 /* Copy the puzzle's FEN (after a puzzle), e.g. to analyse it elsewhere. */
 async function copyFen(btn) {
   const text = $("fenText").textContent, lbl = $("lblCopy");
@@ -1751,10 +1880,14 @@ dlgS.addEventListener("close", () => {
   s.srs.reviewsPerDay = num("optRevMax", 0, 9999, s.srs.reviewsPerDay);
   s.srs.learnN = num("optLearnN", 1, 6, s.srs.learnN);
   if ($("optSpacing").value !== closestSpacing(s.srs.mod)) s.srs.mod = +$("optSpacing").value;
+  const r = ratingChosen(), ratingChanged = r.lo !== s.rating.lo || r.hi !== s.rating.hi;
+  s.rating = r;
   if (JSON.stringify(s) === before) return;
   store.save(app.state);
   updateCounts();
   if (!app.cur) nextPuzzle();
+  // A puzzle outside the new range that isn't finished gives way to one inside it.
+  else if (ratingChanged && !app.cur.finished && !inRatingRange(app.cur.c.id, r.lo, r.hi)) nextPuzzle();
   else if (modeChanged && !app.cur.finished) startPuzzle(app.cur.group, app.cur.c);
   else if (modeChanged) nextPuzzle();
 });
@@ -1904,9 +2037,10 @@ function renderProgress() {
     const st = stats.get(g), t = document.createElement("button");
     t.type = "button";
     t.className = "tile " + st.status + (st.due ? " due" : "") + (st.s && st.s.carried && !st.s.reps && !st.s.lapses ? " carried" : "")
-      + (app.state.suspended[g.sig] ? " suspended" : "");
+      + (app.state.suspended[g.sig] ? " suspended" : "") + (membersInRange(g).length ? "" : " out");
     t.style.background = tileColor(st);
-    t.title = `Group ${g.num + 1}: ${g.members.length} puzzles, ${st.status === "review" ? "learned" : st.status}`;
+    t.title = `Group ${g.num + 1}: ${g.members.length} puzzles, ${st.status === "review" ? "learned" : st.status}`
+      + (membersInRange(g).length ? "" : " (none in your rating range)");
     t.dataset.num = g.num;
     t.addEventListener("click", () => showGroupDetail(g));
     tiles.appendChild(t);
@@ -2639,64 +2773,117 @@ setInterval(() => { if (document.visibilityState === "visible") sync.kick(0); },
 /* ------------------------------------------------------------------ tour */
 /* A spotlight walk through the page: opens by itself on the first visit, and from the Tour button after.
    Steps marked "since: N" are new in tour version N: someone who saw an older tour is shown just those, once. */
-const TOUR_KEY = PAGE_KEY + "tourDone";      // the tour version seen (true = version 1, from before versions)
-const TOUR_VERSION = 2;
+/* Updates: a piece for each new feature. Someone who already knows the app sees, once, only the
+   pieces they haven't seen ("What's new · 2 of 5"); Skip counts them all as seen. A new user's
+   tour already covers everything, so they start with every piece counted as seen. */
+const TOUR_KEY = PAGE_KEY + "tourDone";          // the main tour seen (true; a number from older versions)
+const UPDATES_KEY = PAGE_KEY + "updatesSeen";    // ids of the update pieces seen
+/* Keyboard shortcuts are only worth mentioning where there's a keyboard: not on phones and tablets. */
+const touchOnly = () => matchMedia("(hover: none) and (pointer: coarse)").matches;
+const kb = text => (touchOnly() ? "" : text);
 const tour = {
   open: false, i: 0, list: [], news: false,
   steps: [
     { title: "Welcome to Crux Drills", text: () => "Each puzzle here is the <b>crux</b> of a lichess puzzle: the moment where one move wins. "
-        + "Puzzles that teach the same idea form a <b>group</b>. Solve a new group's first puzzle and it's learned at once; "
+        + "Puzzles that teach the same idea form a <b>group</b>, checked with <b>Maia</b>, a model of how people play: practising one "
+        + "puzzle of a group should help with the others. Solve a new group's first puzzle and it's learned at once; "
         + "miss it and you practise it with other puzzles of the group. Learned groups come back at growing intervals." },
     { target: ".boardwrap", title: "Find the move", text: () => cards()
         ? "Your opponent moves first. Then solve it in your head, show the answer, and say whether you had it."
         : "Your opponent moves first. Then play the winning move: drag or tap a piece. Get it right and they reply, until the puzzle is won." },
-    { target: ".actions", title: "Stuck?", text: () => "<b>Show answer</b> (A) counts as a miss. After each puzzle, step through the solution "
-        + "with ‹ › or the arrow keys, copy the position's FEN, and go on to the next puzzle."
-        + (engine.available() ? " You can also play moves on the board and switch on <b>Stockfish</b> (E) to analyse, as on lichess." : "") },
+    { target: ".actions", title: "Stuck?", text: () => `<b>Show answer</b>${kb(" (A)")} counts as a miss. After each puzzle, step through the solution `
+        + `with ‹ ›${kb(" or the arrow keys")}, copy the position's FEN, and go on to the next puzzle.`
+        + (engine.available() ? ` You can also play moves on the board and switch on <b>Stockfish</b>${kb(" (E)")} to analyse, as on lichess.` : "") },
     { target: ".counts", title: "Today", text: () => "<b>Due</b>: groups to review now. <b>New</b>: groups you can still start today. "
         + "<b>Learned</b>: groups you know." },
     { target: "#btnProgress", title: "Progress", text: () => "Every group as a tile, coloured by how well you know it. "
-        + "Tap one to practise it, suspend it or start it over. Shortcut: P." },
-    { target: "#btnSettings", title: "Settings", text: () => "Play the moves or use flashcards, go to the next puzzle automatically, "
-        + "set new groups per day and review spacing, and back up your progress. Shortcut: S." },
-    { target: "#btnSettings", since: 2, when: () => sync.available(), title: "Sync your devices",
+        + "Tap one to practise it, suspend it or start it over." + kb(" Shortcut: P.") },
+    { target: "#btnSettings", title: "Settings", text: () => "Slide the <b>puzzle rating</b> to the range you want, from beginner to grandmaster "
+        + `(${ratingLabel(ratingRange().lo, ratingRange().hi).replace("Up to", "up to").replace("All ratings", "all ratings")} now), `
+        + "play the moves or use flashcards, set new groups per day and review spacing, back up your progress, "
+        + "and see <b>What's new</b>." + kb(" Shortcut: S.") },
+    { target: "#btnSettings", when: () => sync.available(), title: "Sync your devices",
       text: () => (sync.on() ? "Sync is on here. " : "")
         + "The same progress on your phone and laptop: in <b>Settings</b>, set up <b>Sync</b>, then scan its QR code with your other device's camera. "
         + "Works offline too: it catches up when you're back online. End-to-end encrypted." },
+    { when: () => store.hosted, title: "Works anywhere",
+      text: () => "Everything is kept on this device: the app opens at once and works with no connection, on a plane or in the mountains. "
+        + "New puzzles download in the background, and you'll see when they're ready."
+        + (pwa.standalone() ? "" : " You can also install it as an app" + (pwa.ios() ? ": Share, then <b>Add to Home Screen</b>." : " from your browser's menu.")) },
     { target: "#btnTour", title: "That's it", text: () => "Your progress saves by itself. Take this tour again any time from here." }
   ],
-  seenVersion() { const v = lsGet(TOUR_KEY); return v === true ? 1 : Number(v) || 0; },
-  /* What to show on opening the page: the whole tour the first time, just what's new after an update. */
-  auto() {
-    const v = this.seenVersion();
-    if (!v) this.start();
-    else if (v < TOUR_VERSION) this.start(v);
+  // Oldest first. Each id is shown once; add new ones at the end.
+  updates: [
+    { id: "first-try", target: ".counts", title: "Solved it first time? Move on",
+      text: () => "Solve a new group's first puzzle and it's learned at once, so you get on to <b>new groups</b> instead of repeating what you know. "
+        + "It still comes back for review, at growing intervals. New groups come first, with a review mixed in every few." },
+    { id: "stockfish", when: () => engine.available(), target: ".boardwrap", title: "Analyse with Stockfish",
+      text: () => `After a puzzle, play any moves on the board and switch on <b>Stockfish</b>${kb(" (E)")}: its evaluation, best lines and arrows, as on lichess. `
+        + "It runs on your device, offline too." },
+    { id: "sync", when: () => sync.available(), target: "#btnSettings", title: "Sync your devices",
+      text: () => (sync.on() ? "Sync is on here. " : "")
+        + "The same progress on your phone and laptop: in <b>Settings</b>, set up <b>Sync</b>, then scan its QR code with your other device's camera. "
+        + "Works offline too: it catches up when you're back online. End-to-end encrypted." },
+    { id: "offline", when: () => store.hosted, title: "Opens at once, works anywhere",
+      text: () => "Everything is kept on this device: the app opens instantly and works with no connection at all, "
+        + "on a plane or in the mountains. New puzzles download in the background (only the new ones), and you'll see when they're ready." },
+    { id: "cleaner-groups", target: "#btnProgress", title: "Cleaner groups",
+      text: () => "Small groups are now checked by <b>Maia</b>, the student model behind the puzzles: a group stays only if practising one of "
+        + "its puzzles really helps with the others. Fewer groups that mix two different ideas." },
+    { id: "rating", target: "#btnSettings", title: "Choose your puzzle rating",
+      text: () => "In <b>Settings</b>, slide the <b>puzzle rating</b> to the range you want, from beginner to grandmaster level, and you get only puzzles in it: groups with none in range "
+        + "are left out, and the others give you their puzzles in range. It works offline: every puzzle is on your device." }
+  ],
+  applies(s) { return !s.when || s.when(); },
+  seenUpdates() {
+    const v = lsGet(UPDATES_KEY);
+    if (Array.isArray(v)) return v;
+    return lsGet(TOUR_KEY) === 2 ? ["sync"] : [];     // the tour of the version before saw sync's piece
   },
-  /* The whole tour, or (since = a version seen before) only the steps added after it. */
-  start(since = 0) {
+  markSeen(ids) {
+    const seen = new Set(this.seenUpdates());
+    ids.forEach(id => seen.add(id));
+    lsSet(UPDATES_KEY, [...seen]);
+  },
+  /* On opening the page: the whole tour the first time; after that, the updates not seen yet. */
+  auto() {
+    if (!lsGet(TOUR_KEY)) return this.start();
+    const seen = new Set(this.seenUpdates());
+    this.start(this.updates.filter(u => this.applies(u) && !seen.has(u.id)));
+  },
+  /* The whole tour, or (a list of update pieces) the updates. */
+  start(updates) {
     if (this.open || document.querySelector("dialog[open]")) return;
-    const list = this.steps.filter(s => (!s.when || s.when()) && (!since || (s.since || 1) > since));
-    if (!list.length) return;          // nothing new that applies here (say, sync on a page without a sync server): ask again next time
-    this.list = list; this.news = !!since;
+    const list = updates ? updates : this.steps.filter(s => this.applies(s));
+    if (!list.length) return;          // nothing new that applies here (say, sync without a sync server): ask again later
+    this.list = list; this.news = !!updates;
     this.open = true; this.i = 0;
     $("tour").hidden = false;
     this.show(0);
   },
-  close() {
+  /* skip: the updates tour's Skip - every piece of it counts as seen. */
+  close(skip) {
     if (!this.open) return;
     this.open = false;
     $("tour").hidden = true;
-    lsSet(TOUR_KEY, TOUR_VERSION);
+    if (this.news) { if (skip) this.markSeen(this.list.map(u => u.id)); }
+    else {
+      // The tour covers what the updates say: a new user starts with them all seen.
+      if (!lsGet(TOUR_KEY) && !Array.isArray(lsGet(UPDATES_KEY))) this.markSeen(this.updates.map(u => u.id));
+      lsSet(TOUR_KEY, true);
+    }
     $("btnTour").focus({ preventScroll: true });
   },
   show(i) {
     this.i = i;
     const n = this.list.length, st = this.list[i], last = i === n - 1;
-    $("tourStep").textContent = this.news ? (n > 1 ? `New · ${i + 1} of ${n}` : "New") : `${i + 1} of ${n}`;
+    if (this.news) this.markSeen([st.id]);      // seen once shown: closing part-way keeps the rest for next time
+    $("tourStep").textContent = this.news ? `What's new · ${i + 1} of ${n}` : `${i + 1} of ${n}`;
     $("tourTitle").textContent = st.title;
     $("tourText").innerHTML = st.text();
     $("tourBack").hidden = i === 0;
     $("tourSkip").hidden = last;
+    $("tourSkip").textContent = this.news ? "Skip updates" : "Skip";
     $("tourNext").textContent = last ? (this.news ? "Got it" : "Done") : i === 0 && !this.news ? "Show me" : "Next";
     const el = this.target();
     if (el) { const r = el.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) el.scrollIntoView({ block: "nearest" }); }
@@ -2740,7 +2927,7 @@ const tour = {
 $("btnTour").addEventListener("click", () => tour.start());
 $("tourNext").addEventListener("click", () => (tour.i < tour.list.length - 1 ? tour.show(tour.i + 1) : tour.close()));
 $("tourBack").addEventListener("click", () => tour.show(tour.i - 1));
-$("tourSkip").addEventListener("click", () => tour.close());
+$("tourSkip").addEventListener("click", () => tour.close(true));
 window.addEventListener("resize", () => tour.place());
 document.addEventListener("keydown", ev => { if (tour.key(ev)) ev.stopImmediatePropagation(); }, true);
 
