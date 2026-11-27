@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crux Drills</title>
+<script>window.CRUX_DECK_URL = "deck/index.json";</script>
 <script>window.CRUX_ENGINE = "engine/stockfish-19-lite-single.js";</script>
 <script>window.CRUX_SYNC = "https://crux-sync.ap9834.workers.dev";</script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -200,6 +201,9 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
 .progdetail p { margin: 0 0 4px; }
 .progdetail .row { justify-content: flex-start; margin-top: 8px; }
 .hint { color: var(--muted); font-size: 13px; }
+.deckload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; padding-top: 5px; padding-bottom: 5px; }
+.dlbar { flex: 1 1 120px; height: 6px; border-radius: 3px; background: rgba(127,127,127,.25); overflow: hidden; min-width: 80px; }
+.dlbar span { display: block; height: 100%; background: var(--accent, #3b8cff); }
 /* Progress fits the screen: the title and close button stay put, the tiles scroll inside. */
 #dlgProgress { max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: hidden; }
 #dlgProgress[open] { display: flex; flex-direction: column; }
@@ -290,6 +294,7 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
   <button class="btn ib" id="btnTour" type="button" title="Tour" aria-label="Tour"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.4c-.55.22-.9.75-.9 1.35v.55"/><path d="M12 17h.01" stroke-width="2.6"/></g></svg><span class="lbl">Tour</span></button>
 </header>
 <div class="notice" id="notice" hidden></div>
+<div class="notice deckload" id="deckLoad" hidden></div>
 <main class="main">
   <div class="boardcol">
     <div class="boardwrap">
@@ -420,7 +425,6 @@ dialog.wide { width: min(980px, calc(100vw - 32px)); }
   </div>
 </dialog>
 
-<script src="deck.js"></script>
 <script>
 "use strict";
 const SAMPLE_DECK = {"name":"Example deck","example":true,"groups":[{"sig":"kM7tG#0","members":["kM7tG#0","6yrR3#0","u9xvm#0","NUtU9#0"],"primers":["kM7tG#0","6yrR3#0"]},{"sig":"990jb#0","members":["990jb#0","heKt4#0","qg8ZK#0","26c9k#0"],"primers":["990jb#0","heKt4#0"]}],"cruxes":[{"id":"kM7tG#0","pz":"kM7tG","r":1371,"th":["clearance","long","mate","mateIn3","middlegame","sacrifice"],"s":"b","fen":"4r2k/2p2R1p/3b2p1/8/Q7/1pPBq3/1P5P/1K1R4 b - - 0 30","lm":"","ctx":"","t":{"u":["e3d3","d1d3","e8e1","d3d1","e1d1"],"l":["30...Qxd3+","31. Rxd3","31...Re1+","32. Rd1","32...Rxd1#"],"p":4},"m":[{"u":["d6h2"],"l":["30...Bxh2"]}],"pf":"4r2k/2p2p1p/3b2p1/8/Q7/1pPBq3/1P5P/1K1R1R2 w - - 0 30"},{"id":"6yrR3#0","pz":"6yrR3","r":1091,"th":["clearance","endgame","fork","long","mate","mateIn3","sacrifice"],"s":"b","fen":"6k1/1p1q3p/p5pQ/2p5/2PnR3/1P6/P4PPP/6K1 b - - 0 35","lm":"","ctx":"","t":{"u":["d4e2","e4e2","d7d1","e2e1","d1e1"],"l":["35...Ne2+","36. Rxe2","36...Qd1+","37. Re1","37...Qxe1#"],"p":4},"m":[{"u":["d4f5"],"l":["35...Nf5"]}],"pf":"6k1/1p1q3p/p5pQ/2p5/2Pnp3/1P2R3/P4PPP/6K1 w - - 4 35"},{"id":"u9xvm#0","pz":"u9xvm","r":1211,"th":["attraction","exposedKing","long","mate","mateIn3","middlegame","pillsburysMate","sacrifice"],"s":"b","fen":"r6r/p1n1k3/2p5/1p6/4NnP1/4bB2/PP5B/R4R1K b - - 1 31","lm":"","ctx":"","t":{"u":["h8h2","h1h2","a8h8","h2g3","h8h3"],"l":["31...Rxh2+","32. Kxh2","32...Rh8+","33. Kg3","33...Rh3#"],"p":4},"m":[{"u":["c7d5"],"l":["31...Ncd5"]}],"pf":"r6r/p1n1k3/2p5/1p6/4NnP1/4b3/PP2B2B/R4R1K w - - 0 31"},{"id":"NUtU9#0","pz":"NUtU9","r":1413,"th":["discoveredAttack","kingsideAttack","mate","mateIn2","middlegame","short"],"s":"w","fen":"4brk1/1p3p1p/4pp2/1Pp5/2q1P3/r3PR2/5QPP/5R1K w - - 0 31","lm":"","ctx":"","t":{"u":["f3g3","g8h8","f2f6"],"l":["31. Rg3+","31...Kh8","32. Qxf6#"],"p":2},"m":[{"u":["f2g3"],"l":["31. Qg3+"]}],"pf":"4brk1/1p3ppp/4pN2/1Pp5/2q1P3/r3PR2/5QPP/5R1K b - - 1 30"},{"id":"990jb#0","pz":"990jb","r":2259,"th":["crushing","endgame","master","queenEndgame","skewer","veryLong"],"s":"w","fen":"5Q2/8/5pq1/6kp/6p1/5PPP/6K1/8 w - - 2 55","lm":"","ctx":"","t":{"u":["f3f4","g5f5","f8c8","f5e4","c8c2","e4d5","c2g6"],"l":["55. f4+","55...Kf5","56. Qc8+","56...Ke4","57. Qc2+","57...Kd5","58. Qxg6"],"p":6},"m":[{"u":["h3h4"],"l":["55. h4+"]}],"pf":"5Q2/8/5pqk/7p/6p1/5PPP/6K1/8 b - - 1 54"},{"id":"heKt4#0","pz":"heKt4","r":892,"th":["crushing","discoveredAttack","kingsideAttack","master","middlegame","short"],"s":"b","fen":"r4rk1/p4ppp/4b3/3qp3/1P1b4/P2Q1B2/3B1PPP/2R2RK1 b - - 1 18","lm":"","ctx":"","t":{"u":["d4f2","f1f2","d5d3","f3a8","f8a8","c1e1","d3a3","e1e5","a3a1"],"l":["18...Bxf2+","19. Rxf2","19...Qxd3","20. Bxa8","20...Rxa8","21. Re1","21...Qxa3","22. Rxe5","22...Qa1+"],"p":2},"m":[{"u":["e5e4","f3e4","d5e5","e4a8","f8a8","d2c3","d4c3"],"l":["18...e4","19. Bxe4","19...Qe5","20. Bxa8","20...Rxa8","21. Bc3","21...Bxc3"]}],"pf":"r4rk1/p4ppp/4b3/3qp3/1P1b4/P2Q4/3BBPPP/2R2RK1 w - - 0 18"},{"id":"qg8ZK#0","pz":"qg8ZK","r":947,"th":["crushing","deflection","opening","short"],"s":"w","fen":"r2qkb1r/4pppp/p1pp4/3nP3/Q2P4/4Bb2/PP3PPP/RN3RK1 w kq - 0 13","lm":"","ctx":"","t":{"u":["a4c6","d8d7","c6a8","d7d8","a8a6"],"l":["13. Qxc6+","13...Qd7","14. Qxa8+","14...Qd8","15. Qxa6"],"p":4},"m":[{"u":["g2f3","d8d7"],"l":["13. gxf3","13...Qd7"]}],"pf":"r2qkb1r/4pppp/p1pp4/3nP3/Q2P2b1/4BN2/PP3PPP/RN3RK1 b kq - 5 12"},{"id":"26c9k#0","pz":"26c9k","r":1830,"th":["advantage","attraction","kingsideAttack","middlegame","sacrifice","veryLong"],"s":"b","fen":"r3r1k1/p5p1/1p1bNnp1/8/2Pq4/P7/4QPPP/R3RBK1 b - - 0 23","lm":"","ctx":"","t":{"u":["d6h2","g1h2","d4h4","h2g1","f6g4","e2g4","h4g4","e6c7","e8e1"],"l":["23...Bxh2+","24. Kxh2","24...Qh4+","25. Kg1","25...Ng4","26. Qxg4","26...Qxg4","27. Nc7","27...Rxe1"],"p":6},"m":[{"u":["d4h4","g2g3","h4h5","e2b2","d6c5","f1g2","a8c8","g2d5"],"l":["23...Qh4","24. g3","24...Qh5","25. Qb2","25...Bc5","26. Bg2","26...Rac8","27. Bd5"]}],"pf":"r3r1k1/p5p1/1p1bpnp1/6N1/2Pq4/P7/4QPPP/R3RBK1 w - - 2 23"}]};
@@ -583,6 +587,117 @@ function toFen(pos) {
 function isMate(pos) { return inCheck(pos) && legalMoves(pos).length === 0; }
 
 /* ------------------------------------------------------------------ deck */
+/*
+ * On the website the deck comes as deck/index.json (the groups) plus chunk files of puzzles
+ * (publish_site.py). Chunk files never change once written (their name has a hash of what's in
+ * them), so they're downloaded once and kept for offline use; an update brings only the index and
+ * the new puzzles. The app starts as soon as the index and the chunk with the first puzzle are in.
+ */
+class Crux {
+  // The position of the crux, when the deck leaves it out: the position before, plus the opponent's move.
+  get fen() { if (this._fen === undefined) this._fen = fenAfter(this.pf, this.lm); return this._fen; }
+  set fen(v) { this._fen = v; }
+}
+function fenAfter(pf, lm) {
+  const p = parseFen(pf), m = moveFromUci(p, lm);
+  if (!m) return pf;
+  const q = makeMove(p, m);
+  // As lichess writes it: an en passant square only when a pawn can really take there.
+  if (q.ep >= 0 && !legalMoves(q).some(x => x.to === q.ep && q.b[x.from].toLowerCase() === "p")) q.ep = -1;
+  return toFen(q);
+}
+const deckLoad = {
+  themes: [], chunks: [], done: [], queue: [], running: 0, limit: 3, total: 0, loaded: 0, chunkOf: new Map(), all: null,
+  // One row of a chunk: [id, rating, themes, side, fen or "", fen before, last move, line, payoff, engine, end, choices, tempting lines]
+  expand(r) {
+    const c = new Crux();
+    c.id = r[0]; c.pz = r[0].split("#")[0]; c.r = r[1]; c.th = r[2].map(i => this.themes[i]); c.s = r[3];
+    if (r[4]) c.fen = r[4];
+    c.pf = r[5]; c.lm = r[6];
+    c.t = { u: r[7], p: r[8], e: r[9], x: r[10], c: r[11] };
+    c.m = r[12].map(u => ({ u }));
+    return c;
+  },
+  async json(url, keep) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${url}: ${res.status}`);
+    // Not yet saved for offline (the very first visit, before the offline helper is running): save it now.
+    if (keep && "caches" in window && !(navigator.serviceWorker && navigator.serviceWorker.controller)) {
+      try { (await caches.open("crux-deck")).put(url, res.clone()); } catch (e) { /* only offline use suffers */ }
+    }
+    return res.json();
+  },
+  async open(url) {
+    const t0 = Date.now();
+    const idx = await this.json(url, false);
+    this.themes = idx.themes || [];
+    this.chunks = idx.chunks;
+    this.total = idx.chunks.length;
+    idx.groups.forEach(g => { (g.mc || []).forEach((k, i) => this.chunkOf.set(g.members[i], k)); delete g.mc; });
+    const deck = { name: idx.name, source: idx.source, groups: idx.groups, cruxes: [] };
+    // Fetched a few at a time, so the one the first puzzle needs (need() moves it to the front)
+    // isn't slowed down by all the others on a slow connection.
+    const settle = [];
+    this.done = idx.chunks.map((f, k) => new Promise((ok, fail) => { settle[k] = { ok, fail }; }));
+    this.queue = idx.chunks.map((f, k) => k);
+    this.running = 0;
+    this.limit = navigator.serviceWorker && navigator.serviceWorker.controller ? 8 : 3;
+    this.fetchChunk = k => {
+      this.running++;
+      this.json(new URL(idx.chunks[k], location.href).href, true).then(body => {
+        for (const r of body.rows) {
+          const c = this.expand(r);
+          deck.cruxes.push(c);
+          app.byId.set(c.id, c);
+        }
+        this.loaded++;
+        settle[k].ok();
+      }, e => settle[k].fail(e)).finally(() => { this.running--; this.progress(t0); this.pump(); });
+    };
+    this.all = Promise.allSettled(this.done).then(rs => {
+      const failed = rs.filter(r => r.status === "rejected").length;
+      this.progress(t0, failed);
+      return failed;
+    });
+    return deck;                                       // start() calls pump() once the first puzzle has asked for its part
+  },
+  pump() {
+    // While a puzzle someone is waiting for downloads, it gets the whole connection.
+    while (!this.urgent && this.running < this.limit && this.queue.length) this.fetchChunk(this.queue.shift());
+  },
+  /* Resolves when the puzzle is in (or its chunk couldn't be fetched). */
+  need(id) {
+    const k = this.chunkOf.get(id);
+    if (k === undefined || !this.done[k]) return Promise.resolve();
+    const at = this.queue.indexOf(k);
+    if (at >= 0) {                                    // not started yet: right away, on its own
+      this.queue.splice(at, 1);
+      this.urgent = (this.urgent || 0) + 1;
+      this.fetchChunk(k);
+      this.done[k].catch(() => {}).then(() => { this.urgent--; this.pump(); });
+    }
+    return this.done[k].catch(() => {});
+  },
+  progress(t0, failed) {
+    const bar = $("deckLoad");
+    if (!bar) return;
+    if (failed) {
+      bar.hidden = false;
+      bar.innerHTML = `Couldn't download ${failed} of ${this.total} parts of the puzzles (offline?). They load the next time you're online.`;
+      return;
+    }
+    if (this.loaded >= this.total) {
+      // Only worth a word if it took a while (the first visit): it's all saved for offline use now.
+      if (!bar.hidden) { bar.innerHTML = "All puzzles saved: they work offline now."; setTimeout(() => { bar.hidden = true; }, 3000); }
+      return;
+    }
+    if (Date.now() - t0 > 700) {
+      bar.hidden = false;
+      bar.innerHTML = `Saving the puzzles for offline use: ${Math.round(100 * this.loaded / this.total)}%`
+        + `<span class="dlbar"><span style="width:${(100 * this.loaded / this.total).toFixed(1)}%"></span></span>`;
+    }
+  }
+};
 function slimCrux(c) {
   const t = c.teacher || null;
   const lineOf = facts => ({ u: facts.map(f => f.uci).slice(0, 16), l: facts.map(f => f.label || f.san || f.uci).slice(0, 16) });
@@ -1278,7 +1393,21 @@ function nextPuzzle() {
   updateCounts();
   if (!nx) { showDone(); return; }
   $("done").hidden = true;
-  startPuzzle(nx.group, app.byId.get(nx.crux));
+  startWhenLoaded(nx.group, nx.crux);
+}
+/* Starts a puzzle, once its part of the deck is in (on the website it may still be downloading). */
+function startWhenLoaded(group, id) {
+  const c = app.byId.get(id);
+  if (c) return startPuzzle(group, c);
+  const ticket = app.waiting = {};
+  $("prompt").textContent = "Loading the puzzle…"; $("prompt").className = "prompt";
+  deckLoad.need(id).then(() => {
+    if (app.waiting !== ticket) return;                 // something else started meanwhile
+    app.waiting = null;
+    const got = app.byId.get(id);
+    if (got) startPuzzle(group, got);
+    else $("prompt").textContent = "This puzzle couldn't be downloaded. Check your connection and reload.";
+  });
 }
 function showDone() {
   app.cur = null; ui.live = false; ui.arrows = []; ui.render();
@@ -1298,6 +1427,7 @@ function showDone() {
 }
 function startPuzzle(group, c) {
   stopTimers();
+  app.waiting = null;
   const s = sched.gs(group.sig);
   const stateName = !s || s.status === "learning" ? "new" : s.status;
   app.cur = { group, c, idx: 0, last: lastPly(c), positions: positionsOf(c.fen, c.t.u), finished: false, ok: null, stateName };
@@ -1680,9 +1810,30 @@ const pwa = {
   available() { return store.hosted && !!document.querySelector('link[rel="manifest"]'); },
   standalone() { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; },
   ios() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); },
+  /* The offline helper (sw.js): keeps everything on the device, so the app opens at once and
+     anywhere; new versions download in the background and take over on the next open. */
+  async worker() {
+    const sw = navigator.serviceWorker, had = !!sw.controller;
+    // Registered once the deck is in: then it finds the puzzles already saved and downloads nothing twice.
+    if (deckLoad.all) await deckLoad.all;
+    let reg;
+    try { reg = await sw.register("sw.js", { updateViaCache: "none" }); } catch (e) { return; }
+    sw.addEventListener("controllerchange", async () => {
+      if (!had || this.reloading || !window.CRUX_DECK_URL) return;
+      // Only worth saying if the puzzles changed (the first time the new helper takes over, they haven't).
+      try {
+        const idx = await (await fetch(window.CRUX_DECK_URL)).json();
+        if (JSON.stringify(idx.chunks) === JSON.stringify(deckLoad.chunks) && idx.groups.length === app.deck.groups.length) return;
+      } catch (e) { return; }
+      showNotice('<b>New puzzles are ready.</b> <a href="#" id="lnkReload">Reload</a> to get them (or they\'re there next time).');
+      $("lnkReload").addEventListener("click", ev => { ev.preventDefault(); this.reloading = true; location.reload(); });
+    });
+    // Look for a new version now and then while the app stays open (a batch run publishes often).
+    setInterval(() => { if (document.visibilityState === "visible" && navigator.onLine) reg.update().catch(() => {}); }, 30 * 60 * 1000);
+  },
   start() {
     if (!this.available()) return;
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { /* still works online */ });
+    if ("serviceWorker" in navigator) this.worker();
     if (this.standalone()) return;
     if (this.prompt) $("btnInstall").hidden = false;   // offered before the page knew it's on the website
     if (this.ios() && !lsGet(PAGE_KEY + "iosNoteDone")) {
@@ -1790,7 +1941,7 @@ function showGroupDetail(g) {
   });
   $("btnPractiseGroup").addEventListener("click", () => {
     $("dlgProgress").close();
-    startPuzzle(g, app.byId.get(sched.pickCrux(g)));
+    startWhenLoaded(g, sched.pickCrux(g));
   });
 }
 function openProgress(group) {
@@ -2597,11 +2748,15 @@ document.addEventListener("keydown", ev => { if (tour.key(ev)) ev.stopImmediateP
 function newer(a, b) { if (!a) return b; if (!b) return a; return (a.saved || 0) >= (b.saved || 0) ? a : b; }
 async function start() {
   ui.build();
-  const deck = window.CRUX_DECK && window.CRUX_DECK.groups ? window.CRUX_DECK : null;
+  let deck = window.CRUX_DECK && window.CRUX_DECK.groups ? window.CRUX_DECK : null;
+  if (!deck && window.CRUX_DECK_URL) {
+    try { deck = await deckLoad.open(window.CRUX_DECK_URL); }
+    catch (e) { showNotice("<b>The puzzles couldn't be loaded.</b> You seem to be offline, and they aren't saved on this device yet: open the site once with a connection."); }
+  }
   setDeck(deck || SAMPLE_DECK);
   const st = newer(lsGet(PAGE_KEY + "state"), window.CRUX_PROGRESS || null);
   app.state = normalizeSettings(st ? Object.assign(freshState(), st) : freshState());
-  if (!deck) showNotice("<b>No deck.js next to this page</b>, so these are 8 example puzzles. Run <b>make_practice.py</b> to put your groups in this folder, then reload.");
+  if (!deck && !window.CRUX_DECK_URL) showNotice("<b>No deck.js next to this page</b>, so these are 8 example puzzles. Run <b>make_practice.py</b> to put your groups in this folder, then reload.");
   await store.restore();
   await sync.init();          // before the groups are brought up to date, so that counts as a change too
   reconcile();
@@ -2620,6 +2775,7 @@ async function start() {
   sync.kick(0);
   engine.on = !!app.state.settings.engine;
   nextPuzzle();
+  if (deckLoad.fetchChunk) deckLoad.pump();          // the rest of the puzzles, after the first one's
   setTimeout(() => tour.auto(), 1100);   // first visit or new steps: after the opening move has played
 }
 start();
