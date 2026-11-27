@@ -840,6 +840,7 @@ function normalizeSettings(st) {
     srs: { ...DEFAULT_SRS, reviewsPerDay: pick("reviewsPerDay", 0), learnN, mod: pick("mod", 100) }
   };
   st.suspended = st.suspended || {};
+  st.news = st.news && typeof st.news === "object" ? st.news : {};   // tour and update pieces seen (synced)
   return st;
 }
 const store = {
@@ -1017,7 +1018,7 @@ function openSaveDialog() {
 /* ------------------------------------------------------------------ scheduler */
 const DAY = 86400000, MIN = 60000;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
-function freshState() { return { settings: { ...DEFAULT_SETTINGS, srs: { ...DEFAULT_SRS } }, groups: {}, seen: {}, cruxes: {}, suspended: {},
+function freshState() { return { settings: { ...DEFAULT_SETTINGS, srs: { ...DEFAULT_SRS } }, groups: {}, seen: {}, cruxes: {}, suspended: {}, news: {},
                                   daily: { date: today(), newDone: 0, reviews: 0 } }; }
 
 /*
@@ -1860,9 +1861,10 @@ $("optMode").addEventListener("change", () => { $("rowAuto").hidden = $("optMode
 $("btnResetAll").addEventListener("click", () => {
   if (!confirm((sync.on() ? "Forget all your progress, here and on your synced devices?" : "Forget all your progress here?")
                + " Your settings stay. This can't be undone (unless you exported your progress).")) return;
-  const settings = app.state.settings, keep = app.state.sync;
+  const settings = app.state.settings, keep = app.state.sync, news = app.state.news;
   app.state = freshState();
   app.state.settings = settings;
+  app.state.news = news || {};                       // what's been shown stays shown
   if (keep) app.state.sync = keep;
   app.state.saved = Date.now();
   store.save(app.state);
@@ -1917,8 +1919,9 @@ async function importProgress(file) {
   if (!confirm(msg)) return;
   app.importing = true;
   dlgS.close();
-  const keep = app.state.sync;
+  const keep = app.state.sync, news = app.state.news;
   app.state = normalizeSettings(Object.assign(freshState(), st));
+  app.state.news = Object.assign({}, app.state.news, news);   // seen here, or in the file
   if (keep) app.state.sync = keep; else delete app.state.sync;   // a file never brings sync bookkeeping with it
   app.state.saved = Date.now();
   sync.track(app.state);                                          // syncing: the imported progress goes to the other devices
@@ -2471,6 +2474,7 @@ const sync = {
     for (const [k, v] of Object.entries(st.cruxes || {})) put("c:" + k, v);
     for (const [k, v] of Object.entries(st.seen || {})) put("s:" + k, v);
     for (const k of Object.keys(st.suspended || {})) if (st.suspended[k]) put("u:" + k, true);
+    for (const k of Object.keys(st.news || {})) if (st.news[k]) put("n:" + k, 1);   // tour / updates seen
     put("o", st.settings);
     const d = st.daily || {};
     put("d:" + this.conf.device, { date: d.date, newDone: d.newDone || 0, reviews: d.reviews || 0 });
@@ -2480,6 +2484,7 @@ const sync = {
     const i = k.indexOf(":"), type = i < 0 ? k : k.slice(0, i), key = k.slice(i + 1);
     const v = type === "g" ? st.groups[key] : type === "c" ? st.cruxes[key] : type === "s" ? st.seen[key]
             : type === "u" ? (st.suspended[key] ? true : undefined) : type === "o" ? st.settings
+            : type === "n" ? ((st.news || {})[key] ? 1 : undefined)
             : type === "d" ? (key === this.conf.device ? { date: st.daily.date, newDone: st.daily.newDone || 0, reviews: st.daily.reviews || 0 } : undefined)
             : undefined;
     return v === undefined ? null : v;
@@ -2492,6 +2497,7 @@ const sync = {
     else if (type === "c") setOrDel(st.cruxes, c);
     else if (type === "s") setOrDel(st.seen, c);
     else if (type === "u") setOrDel(st.suspended, c ? true : null);
+    else if (type === "n") { st.news = st.news || {}; setOrDel(st.news, c ? 1 : null); }
     else if (type === "o" && c) st.settings = normalizeSettings({ settings: c }).settings;
   },
   /* Called before each save: whatever changed since the last save gets stamped and queued. */
@@ -2782,12 +2788,14 @@ const UPDATES_KEY = PAGE_KEY + "updatesSeen";    // ids of the update pieces see
 const touchOnly = () => matchMedia("(hover: none) and (pointer: coarse)").matches;
 const kb = text => (touchOnly() ? "" : text);
 const tour = {
-  open: false, i: 0, list: [], news: false,
+  open: false, i: 0, list: [], isNews: false,
   steps: [
-    { title: "Welcome to Crux Drills", text: () => "Each puzzle here is the <b>crux</b> of a lichess puzzle: the moment where one move wins. "
-        + "Puzzles that teach the same idea form a <b>group</b>, checked with <b>Maia</b>, a model of how people play: practising one "
-        + "puzzle of a group should help with the others. Solve a new group's first puzzle and it's learned at once; "
-        + "miss it and you practise it with other puzzles of the group. Learned groups come back at growing intervals." },
+    { title: "Welcome to Crux Drills", text: () => "Each puzzle here is a <b>crux</b>: a moment in a lichess puzzle (or one of its side lines) "
+        + "where <b>Maia</b>, an AI that plays like people of the puzzle's rating, would go wrong, but Stockfish's move wins. "
+        + "These are the moments players at that level really miss.<br><br>"
+        + "Cruxes that teach the same idea form a <b>group</b> (Maia checks that practising one helps with the others). "
+        + "You learn the idea, not one puzzle: solve a group's first puzzle and it's learned; miss it and you get other puzzles "
+        + "of the group until it sticks. Learned groups come back at growing intervals." },
     { target: ".boardwrap", title: "Find the move", text: () => cards()
         ? "Your opponent moves first. Then solve it in your head, show the answer, and say whether you had it."
         : "Your opponent moves first. Then play the winning move: drag or tap a piece. Get it right and they reply, until the puzzle is won." },
@@ -2835,19 +2843,27 @@ const tour = {
         + "are left out, and the others give you their puzzles in range. It works offline: every puzzle is on your device." }
   ],
   applies(s) { return !s.when || s.when(); },
-  seenUpdates() {
-    const v = lsGet(UPDATES_KEY);
-    if (Array.isArray(v)) return v;
-    return lsGet(TOUR_KEY) === 2 ? ["sync"] : [];     // the tour of the version before saw sync's piece
-  },
+  /* What's been shown is kept with the progress (state.news: "tour" and each update's id), so it
+     syncs: an update seen on one device isn't shown again on another. */
+  news() { return app.state.news || (app.state.news = {}); },
+  seenUpdates() { return Object.keys(this.news()).filter(k => k !== "tour" && this.news()[k]); },
   markSeen(ids) {
-    const seen = new Set(this.seenUpdates());
-    ids.forEach(id => seen.add(id));
-    lsSet(UPDATES_KEY, [...seen]);
+    const n = this.news();
+    let changed = false;
+    ids.forEach(id => { if (!n[id]) { n[id] = 1; changed = true; } });
+    if (changed) store.save(app.state);
+  },
+  /* Once: what this browser remembered on its own before it was kept with the progress. */
+  migrate() {
+    const n = this.news(), before = JSON.stringify(n), done = lsGet(TOUR_KEY), list = lsGet(UPDATES_KEY);
+    if (done) n.tour = 1;
+    if (Array.isArray(list)) list.forEach(id => { n[id] = 1; });
+    else if (done === 2) n.sync = 1;                   // the tour of the version before showed sync's piece
+    if (JSON.stringify(n) !== before) store.save(app.state);
   },
   /* On opening the page: the whole tour the first time; after that, the updates not seen yet. */
   auto() {
-    if (!lsGet(TOUR_KEY)) return this.start();
+    if (!this.news().tour) return this.start();
     const seen = new Set(this.seenUpdates());
     this.start(this.updates.filter(u => this.applies(u) && !seen.has(u.id)));
   },
@@ -2856,7 +2872,7 @@ const tour = {
     if (this.open || document.querySelector("dialog[open]")) return;
     const list = updates ? updates : this.steps.filter(s => this.applies(s));
     if (!list.length) return;          // nothing new that applies here (say, sync without a sync server): ask again later
-    this.list = list; this.news = !!updates;
+    this.list = list; this.isNews = !!updates;
     this.open = true; this.i = 0;
     $("tour").hidden = false;
     this.show(0);
@@ -2866,25 +2882,22 @@ const tour = {
     if (!this.open) return;
     this.open = false;
     $("tour").hidden = true;
-    if (this.news) { if (skip) this.markSeen(this.list.map(u => u.id)); }
-    else {
-      // The tour covers what the updates say: a new user starts with them all seen.
-      if (!lsGet(TOUR_KEY) && !Array.isArray(lsGet(UPDATES_KEY))) this.markSeen(this.updates.map(u => u.id));
-      lsSet(TOUR_KEY, true);
-    }
+    if (this.isNews) { if (skip) this.markSeen(this.list.map(u => u.id)); }
+    // The tour covers what the updates say: a new user starts with them all seen.
+    else if (!this.news().tour) this.markSeen(["tour", ...this.updates.map(u => u.id)]);
     $("btnTour").focus({ preventScroll: true });
   },
   show(i) {
     this.i = i;
     const n = this.list.length, st = this.list[i], last = i === n - 1;
-    if (this.news) this.markSeen([st.id]);      // seen once shown: closing part-way keeps the rest for next time
-    $("tourStep").textContent = this.news ? `What's new · ${i + 1} of ${n}` : `${i + 1} of ${n}`;
+    if (this.isNews) this.markSeen([st.id]);    // seen once shown: closing part-way keeps the rest for next time
+    $("tourStep").textContent = this.isNews ? `What's new · ${i + 1} of ${n}` : `${i + 1} of ${n}`;
     $("tourTitle").textContent = st.title;
     $("tourText").innerHTML = st.text();
     $("tourBack").hidden = i === 0;
     $("tourSkip").hidden = last;
-    $("tourSkip").textContent = this.news ? "Skip updates" : "Skip";
-    $("tourNext").textContent = last ? (this.news ? "Got it" : "Done") : i === 0 && !this.news ? "Show me" : "Next";
+    $("tourSkip").textContent = this.isNews ? "Skip updates" : "Skip";
+    $("tourNext").textContent = last ? (this.isNews ? "Got it" : "Done") : i === 0 && !this.isNews ? "Show me" : "Next";
     const el = this.target();
     if (el) { const r = el.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) el.scrollIntoView({ block: "nearest" }); }
     this.place();
@@ -2959,11 +2972,13 @@ async function start() {
   $("rowSync").hidden = !sync.available();
   renderSyncDialog();
   syncFromLink();
-  sync.kick(0);
+  tour.migrate();
+  // The first sync first (a few seconds at most): updates seen on another device then count here too.
+  const firstSync = sync.on() ? Promise.race([sync.run().catch(() => {}), new Promise(r => setTimeout(r, 5000))]) : null;
   engine.on = !!app.state.settings.engine;
   nextPuzzle();
   if (deckLoad.fetchChunk) deckLoad.pump();          // the rest of the puzzles, after the first one's
-  setTimeout(() => tour.auto(), 1100);   // first visit or new steps: after the opening move has played
+  setTimeout(async () => { if (firstSync) await firstSync; tour.auto(); }, 1100);   // after the opening move has played
 }
 start();
 </script>
